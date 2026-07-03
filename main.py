@@ -1,3 +1,11 @@
+import os
+os.system("pip install aiogram==3.17.0")
+
+# Mana shu yerdan pastga sizning kodlaringiz davom etadi
+import asyncio
+from aiogram import Bot, Dispatcher, types, F
+# ... qolgan kod
+
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
