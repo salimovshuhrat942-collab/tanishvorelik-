@@ -1,3 +1,21 @@
+import subprocess
+import sys
+
+# Kutubxonalarni majburiy o'rnatish
+def install_libraries():
+    try:
+        import aiogram
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "aiogram"])
+
+install_libraries()
+
+# Endi qolgan kodlarimiz boshlanadi
+import asyncio
+import sqlite3
+from aiogram import Bot, Dispatcher, types, F
+# ... qolgan kodlaringiz
+
 import asyncio
 import sqlite3
 from aiogram import Bot, Dispatcher, types, F
