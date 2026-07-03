@@ -41,6 +41,12 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
+# MUHIM: bot guruhda admin bo'lgani uchun (majburiy obunani tekshirish uchun),
+# Telegram uni guruhdagi BARCHA xabarlarni ko'radigan qilib qo'yadi.
+# Shu sabab botni faqat SHAXSIY chatlarda ishlaydigan qilib cheklaymiz,
+# aks holda bot guruhga xabar yozib yubora boshlaydi.
+dp.message.filter(F.chat.type == "private")
+
 
 # ============================================================
 #                          BAZA
@@ -436,25 +442,27 @@ async def process_like(callback: types.CallbackQuery):
 
     is_match = db_add_like(callback.from_user.id, target_id)
 
+    # Layk bosilgan zahoti o'sha odamning username'ini ko'rsatamiz
+    try:
+        target_chat = await bot.get_chat(target_id)
+        target_username = target_chat.username
+    except (TelegramForbiddenError, TelegramBadRequest):
+        target_profile = db_get_profile(target_id)
+        target_username = target_profile['username'] if target_profile else None
+
+    target_link = f"@{target_username}" if target_username else "username yashirin (profilida username yo'q)"
+    await callback.message.answer(f"❤️ Like yuborildi!\n👤 Bog'lanish uchun: {target_link}")
+
     if is_match:
-        # ikkalasiga ham xabar beramiz
         my_username = callback.from_user.username
         my_link = f"@{my_username}" if my_username else "username yashirin"
-        await callback.message.answer(f"🎉 <b>Bu — MATCH!</b>\nBir-biringizga yoqib qoldingiz.",
+        await callback.message.answer("🎉 <b>Bu — MATCH!</b>\nBir-biringizga yoqib qoldingiz.",
                                        parse_mode="HTML")
         try:
-            target_profile = db_get_profile(target_id)
-            target_username = None
-            if target_profile:
-                target_username = target_profile['username']
-            target_link = f"@{target_username}" if target_username else "username yashirin"
-            await callback.message.answer(f"👤 Bog'lanish uchun: {target_link}")
             await bot.send_message(target_id, f"🎉 <b>Sizga MATCH bor!</b>\n👤 Bog'lanish uchun: {my_link}",
                                     parse_mode="HTML")
         except (TelegramForbiddenError, TelegramBadRequest):
             pass
-    else:
-        await callback.answer("❤️ Like yuborildi!")
 
     await callback.answer()
 
