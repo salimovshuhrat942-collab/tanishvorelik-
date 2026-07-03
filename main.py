@@ -30,7 +30,7 @@ def get_main_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Profilimni yaratish", callback_data="register")],
         [InlineKeyboardButton(text="🔄 Tanishuvni boshlash", callback_data="random")],
-        [InlineKeyboardButton(text="📢 Kanalga obuna", url="https://t.me/kanal_username")]
+        [InlineKeyboardButton(text="📢 Kanalga obuna", url="://https://t.me/+1USZgKXMKTc3YzEy")]
     ])
     return keyboard
 
