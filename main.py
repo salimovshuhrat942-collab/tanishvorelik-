@@ -32,7 +32,7 @@ ADMIN_IDS = [8007670371]          # bir nechta admin bo'lsa: [123, 456]
 # MAJBURIY OBUNA — kanal @username yoki -100... ID bo'lishi kerak
 # Bot albatta shu kanal(lar)da ADMIN bo'lishi shart, aks holda tekshira olmaydi!
 REQUIRED_CHANNELS = [
-    {"chat_id": "@your_channel_username", "title": "Kanalimiz", "url": "https://t.me/your_channel_username"},
+    {"chat_id": "@yoryor_rasmi", "title": "Yoryor guruhi", "url": "https://t.me/yoryor_rasmi"},
 ]
 
 DB_PATH = "users.db"
