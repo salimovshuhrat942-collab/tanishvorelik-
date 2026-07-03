@@ -18,52 +18,64 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
 ADMIN_ID = 8007670371
+CHANNEL_ID = "@kanal_username" # Kanal yuzername-ini yozing
 GROUP_LINK = "https://t.me/+1USZgKXMKTc3YzEy"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Asosiy menyu tugmalari
+# Obuna tekshirish
+async def is_subscribed(user_id: int):
+    try:
+        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+        return member.status in ['member', 'administrator', 'creator']
+    except:
+        return False
+
+# Asosiy menyu
 def get_main_kb(user_id):
     kb = [
         [InlineKeyboardButton(text="👤 Profilni yaratish", callback_data="register")],
         [InlineKeyboardButton(text="🔎 Tanishuvni boshlash", callback_data="random")],
-        [InlineKeyboardButton(text="📢 Kanalga obuna bo'lish", url=GROUP_LINK)]
+        [InlineKeyboardButton(text="📢 Kanalga obuna", url=GROUP_LINK)]
     ]
     if user_id == ADMIN_ID:
         kb.append([InlineKeyboardButton(text="⚙️ Admin Panel", callback_data="admin")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
-# /start komandasi
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Xush kelibsiz xabari va doimiy eslatma
-    text = (
+    await message.answer(
         "✨ **Tanishuv botiga xush kelibsiz!**\n\n"
-        "Bu yerda siz yangi do'stlar topishingiz mumkin. "
-        "Profil yarating va tanishuvni boshlang!\n\n"
-        "📢 *Kanalimizga obuna bo'lishni unutmang: " + GROUP_LINK + "*\n"
-        "Bu biz uchun katta qo'llab-quvvatlov!"
+        "Botdan foydalanish uchun avval kanalimizga obuna bo'ling va pastdagi tugmani bosing:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Kanalga o'tish", url=GROUP_LINK)],
+            [InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_sub")]
+        ])
     )
-    await message.answer(text, reply_markup=get_main_kb(message.from_user.id), parse_mode="Markdown")
 
-# Admin panel tugmasi bosilganda
+@dp.callback_query(F.data == "check_sub")
+async def check_sub(callback: types.CallbackQuery):
+    if await is_subscribed(callback.from_user.id):
+        await callback.message.edit_text(
+            "✅ **Rahmat! Obuna tasdiqlandi.**\n\nEndi botdan to'liq foydalanishingiz mumkin:",
+            reply_markup=get_main_kb(callback.from_user.id)
+        )
+    else:
+        await callback.answer("❌ Siz hali kanalga obuna bo'lmadingiz!", show_alert=True)
+
 @dp.callback_query(F.data == "admin")
 async def admin_panel(callback: types.CallbackQuery):
-    if callback.from_user.id == ADMIN_ID:
-        await callback.message.answer("⚙️ **Admin Panel**\n\nQuyidagilardan birini tanlang:", 
-                                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                                         [InlineKeyboardButton(text="📢 Rasilka qilish", callback_data="broadcast")],
-                                         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="menu")]
-                                     ]))
-    await callback.answer()
+    await callback.message.edit_text("⚙️ Admin Panel", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📢 Rasilka", callback_data="broadcast")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_to_menu")]
+    ]))
 
-@dp.callback_query(F.data == "menu")
-async def menu(callback: types.CallbackQuery):
-    await callback.message.edit_text("✨ **Bosh menyu:**", reply_markup=get_main_kb(callback.from_user.id))
+@dp.callback_query(F.data == "back_to_menu")
+async def back_menu(callback: types.CallbackQuery):
+    await callback.message.edit_text("✨ Bosh menyu:", reply_markup=get_main_kb(callback.from_user.id))
 
 async def main():
-    print("Bot muvaffaqiyatli ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
