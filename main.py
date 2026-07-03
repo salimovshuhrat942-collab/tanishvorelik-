@@ -16,7 +16,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
 ADMIN_ID = 8007670371
-REQUIRED_CHANNEL = "https://t.me/+1USZgKXMKTc3YzEy"
+REQUIRED_CHANNEL = "https://"@kanal_username"
 
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
