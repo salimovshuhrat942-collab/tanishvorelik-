@@ -1,10 +1,3 @@
-import os
-os.system("pip install aiogram")
-
-import asyncio
-from aiogram import Bot, Dispatcher, types, F
-# ... qolgan kodlaringiz
-
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -13,10 +6,9 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Token va Admin ID
-TOKEN = "8582560566:AAGd87OTCBmoSH0WQPZ2ObgP44SXwQR8mVc"
+TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
 ADMIN_ID = 8007670371
-REQUIRED_CHANNEL = "@kanal_username" # Kanal nomini kiriting
+REQUIRED_CHANNEL = "@kanal_username"
 
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
@@ -24,6 +16,15 @@ dp = Dispatcher(storage=storage)
 
 users_db = {}
 user_ids = set()
+
+# Menyu tugmalari
+def get_main_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👤 Profilimni yaratish", callback_data="register")],
+        [InlineKeyboardButton(text="🔄 Tanishuvni boshlash", callback_data="random")],
+        [InlineKeyboardButton(text="📢 Kanalga obuna", url="https://t.me/kanal_username")]
+    ])
+    return keyboard
 
 class Registration(StatesGroup):
     name = State()
@@ -33,11 +34,20 @@ class Registration(StatesGroup):
     photo = State()
 
 @dp.message(Command("start"))
-async def start(message: types.Message, state: FSMContext):
+async def start(message: types.Message):
     user_ids.add(message.from_user.id)
-    await message.answer(f"Xush kelibsiz! Botdan foydalanish uchun {REQUIRED_CHANNEL} ga obuna bo'ling.\n\nRo'yxatdan o'tish uchun ismingizni yozing:")
-    await state.set_state(Registration.name)
+    await message.answer(
+        "Salom! Tanishuv botiga xush kelibsiz! Quyidagi tugmalardan birini tanlang:",
+        reply_markup=get_main_keyboard()
+    )
 
+@dp.callback_query(F.data == "register")
+async def start_reg(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("Ismingizni yozing:")
+    await state.set_state(Registration.name)
+    await callback.answer()
+
+# --- Qolgan ro'yxatdan o'tish qismlari (oldingidek) ---
 @dp.message(Registration.name)
 async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
@@ -70,24 +80,15 @@ async def process_photo(message: types.Message, state: FSMContext):
         "city": data['city'], "district": data['district'],
         "photo": message.photo[-1].file_id, "username": message.from_user.username
     }
-    await message.answer("Profil yaratildi! /random buyrug'i orqali tanishuvni boshlang.")
+    await message.answer("Profil yaratildi! Menyu:", reply_markup=get_main_keyboard())
     await state.clear()
 
-@dp.message(Command("send"))
-async def broadcast(message: types.Message):
-    if message.from_user.id == ADMIN_ID:
-        text = message.text.replace("/send ", "")
-        for uid in user_ids:
-            try: await bot.send_message(uid, text)
-            except: continue
-        await message.answer("Xabar barchaga yuborildi.")
-
-@dp.message(Command("random"))
-async def random_user(message: types.Message):
+@dp.callback_query(F.data == "random")
+async def random_user(callback: types.CallbackQuery):
     import random
-    others = [uid for uid in users_db if uid != message.from_user.id]
+    others = [uid for uid in users_db if uid != callback.from_user.id]
     if not others:
-        await message.answer("Hozircha foydalanuvchilar yo'q.")
+        await callback.message.answer("Hozircha foydalanuvchilar yo'q.")
         return
     
     target_id = random.choice(others)
@@ -95,17 +96,23 @@ async def random_user(message: types.Message):
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❤️ Like", callback_data=f"like_{target_id}")],
-        [InlineKeyboardButton(text="🔄 Keyingisi", callback_data="random")]
+        [InlineKeyboardButton(text="🔄 Keyingisi", callback_data="random")],
+        [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="menu")]
     ])
     
-    await message.answer_photo(photo=user['photo'], 
+    await callback.message.answer_photo(photo=user['photo'], 
                                caption=f"👤 {user['name']}, {user['age']} yosh\n📍 {user['city']}, {user['district']}",
                                reply_markup=kb)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu")
+async def back_to_menu(callback: types.CallbackQuery):
+    await callback.message.edit_text("Bosh menyu:", reply_markup=get_main_keyboard())
 
 @dp.callback_query(F.data.startswith("like_"))
 async def like_user(callback: types.CallbackQuery):
     target_id = int(callback.data.split("_")[1])
-    username = users_db[target_id].get('username', 'Mavjud emas')
+    username = users_db[target_id].get('username', 'Noma\'lum')
     await callback.message.answer(f"Sizga yoqdi! Uning profili: @{username}")
     await callback.answer()
 
