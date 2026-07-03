@@ -18,26 +18,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
 ADMIN_ID = 8007670371
-CHANNEL_ID = "@kanal_username" # Kanal yuzername-ini yozing
 GROUP_LINK = "https://t.me/+1USZgKXMKTc3YzEy"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-
-# Obuna tekshirish
-async def is_subscribed(user_id: int):
-    try:
-        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
-        return member.status in ['member', 'administrator', 'creator']
-    except:
-        return False
 
 # Asosiy menyu
 def get_main_kb(user_id):
     kb = [
         [InlineKeyboardButton(text="👤 Profilni yaratish", callback_data="register")],
         [InlineKeyboardButton(text="🔎 Tanishuvni boshlash", callback_data="random")],
-        [InlineKeyboardButton(text="📢 Kanalga obuna", url=GROUP_LINK)]
+        [InlineKeyboardButton(text="📢 Kanalimizga obuna", url=GROUP_LINK)]
     ]
     if user_id == ADMIN_ID:
         kb.append([InlineKeyboardButton(text="⚙️ Admin Panel", callback_data="admin")])
@@ -45,24 +36,24 @@ def get_main_kb(user_id):
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    # Bu yerda endi tekshiruv yo'q, shunchaki xabar va tugmalar
     await message.answer(
         "✨ **Tanishuv botiga xush kelibsiz!**\n\n"
-        "Botdan foydalanish uchun avval kanalimizga obuna bo'ling va pastdagi tugmani bosing:",
+        "Bizning kanalimizda eng qiziqarli yangiliklar va tanishuvlar!\n"
+        "Obuna bo'lishni unutmang! 👇",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Kanalga o'tish", url=GROUP_LINK)],
-            [InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_sub")]
+            [InlineKeyboardButton(text="✅ Obuna bo'ldim, davom etish", callback_data="check_sub")]
         ])
     )
 
 @dp.callback_query(F.data == "check_sub")
 async def check_sub(callback: types.CallbackQuery):
-    if await is_subscribed(callback.from_user.id):
-        await callback.message.edit_text(
-            "✅ **Rahmat! Obuna tasdiqlandi.**\n\nEndi botdan to'liq foydalanishingiz mumkin:",
-            reply_markup=get_main_kb(callback.from_user.id)
-        )
-    else:
-        await callback.answer("❌ Siz hali kanalga obuna bo'lmadingiz!", show_alert=True)
+    # Hech qanday tekshiruvsiz to'g'ridan-to'g'ri menyuni ochamiz
+    await callback.message.edit_text(
+        "✅ **Rahmat! Endi botdan to'liq foydalanishingiz mumkin.**",
+        reply_markup=get_main_kb(callback.from_user.id)
+    )
 
 @dp.callback_query(F.data == "admin")
 async def admin_panel(callback: types.CallbackQuery):
