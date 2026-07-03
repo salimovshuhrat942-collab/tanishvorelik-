@@ -1,3 +1,10 @@
+import os
+os.system("pip install aiogram")
+
+import asyncio
+from aiogram import Bot, Dispatcher, types, F
+# ... qolgan kodlaringiz
+
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
