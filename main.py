@@ -1,6 +1,7 @@
 # bot.py — Tanishuv Bot PRO
 # aiogram 3 | SQLite (Volume-persistent) | 100% himoyalangan
 import asyncio
+import html
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F, Router
@@ -438,129 +439,182 @@ async def report_cb(callback: CallbackQuery):
     await callback.answer("Shikoyat qabul qilindi. Rahmat!", show_alert=True)
 
 
-# ============ ADMIN PANEL ============
+# ============ ADMIN PANEL (tugmali) ============
 
-@router.message(Command("admin"))
-@admin_only
-async def admin_panel(message: Message):
+class AdminAction(StatesGroup):
+    ban_id = State()
+    unban_id = State()
+    vip_id = State()
+    vip_days = State()
+    addchannel = State()
+    removechannel = State()
+
+
+def admin_menu_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
+        [InlineKeyboardButton(text="🚫 Ban qilish", callback_data="adm:ban"),
+         InlineKeyboardButton(text="✅ Unban qilish", callback_data="adm:unban")],
+        [InlineKeyboardButton(text="💎 VIP berish", callback_data="adm:vip")],
+        [InlineKeyboardButton(text="📢 Kanal qo'shish", callback_data="adm:addchannel"),
+         InlineKeyboardButton(text="🗑 Kanal o'chirish", callback_data="adm:removechannel")],
+        [InlineKeyboardButton(text="📋 Kanallar ro'yxati", callback_data="adm:listchannels")],
+        [InlineKeyboardButton(text="📨 Xabar yuborish", callback_data="adm:broadcast")],
+    ])
+
+
+def stats_text():
     stats = db.get_stats()
-    channels = db.get_required_channels()
-    channels_text = "\n".join(f"• {c}" for c in channels) if channels else "— (o'rnatilmagan)"
-    text = (
-        "🛠 <b>Admin panel</b>\n\n"
+    return (
+        "📊 <b>Statistika</b>\n\n"
         f"👥 Jami foydalanuvchi: {stats['total']}\n"
         f"✅ Faol: {stats['active']}\n"
         f"👨 Erkak: {stats['male']} | 👩 Ayol: {stats['female']}\n"
         f"❤️ Matchlar: {stats['matches']}\n"
         f"💎 VIP: {stats['vip']}\n"
-        f"🚫 Ban qilingan: {stats['banned']}\n\n"
-        f"📢 Majburiy obuna kanal/guruhlari:\n{channels_text}\n\n"
-        "Buyruqlar:\n"
-        "/broadcast — barchaga xabar yuborish\n"
-        "/ban <user_id> — foydalanuvchini bloklash\n"
-        "/unban <user_id> — blokdan chiqarish\n"
-        "/setvip <user_id> <kunlar> — VIP berish\n"
-        "/addchannel <@username yoki -100...> — majburiy kanal/guruh qo'shish\n"
-        "/removechannel <@username yoki -100...> — olib tashlash\n"
-        "/listchannels — ro'yxatni ko'rish"
+        f"🚫 Ban qilingan: {stats['banned']}"
     )
-    await message.answer(text, parse_mode="HTML")
 
 
-@router.message(Command("addchannel"))
+@router.message(Command("admin"))
 @admin_only
-async def cmd_addchannel(message: Message, bot: Bot):
-    parts = message.text.split(maxsplit=1)
-    if len(parts) != 2:
-        await message.answer(
-            "Foydalanish: /addchannel <@kanal_username>\n"
-            "Yopiq guruh/kanal uchun: /addchannel -1001234567890\n\n"
-            "⚠️ Botni albatta o'sha kanal/guruhga ADMIN qilib qo'shing, "
-            "aks holda a'zolikni tekshira olmaydi!"
-        )
+async def admin_panel(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("🛠 <b>Admin panel</b>\nKerakli bo'limni tanlang:",
+                          parse_mode="HTML", reply_markup=admin_menu_kb())
+
+
+@router.callback_query(F.data.startswith("adm:"))
+@flood_guard
+async def admin_menu_cb(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
         return
-    channel = parts[1].strip()
-    # Botning shu kanalda ishlay olishini oldindan tekshiramiz
+    action = callback.data.split(":", 1)[1]
+    await callback.answer()
+
+    if action == "stats":
+        await callback.message.answer(stats_text(), parse_mode="HTML", reply_markup=admin_menu_kb())
+
+    elif action == "listchannels":
+        channels = db.get_required_channels()
+        text = ("📢 Majburiy obuna ro'yxati:\n" + "\n".join(f"• {html.escape(c)}" for c in channels)
+                if channels else "Hozircha majburiy kanal/guruh o'rnatilmagan.")
+        await callback.message.answer(text, reply_markup=admin_menu_kb())
+
+    elif action == "ban":
+        await state.set_state(AdminAction.ban_id)
+        await callback.message.answer("🚫 Ban qilinadigan foydalanuvchining Telegram ID raqamini yuboring:")
+
+    elif action == "unban":
+        await state.set_state(AdminAction.unban_id)
+        await callback.message.answer("✅ Blokdan chiqariladigan foydalanuvchining Telegram ID raqamini yuboring:")
+
+    elif action == "vip":
+        await state.set_state(AdminAction.vip_id)
+        await callback.message.answer("💎 VIP beriladigan foydalanuvchining Telegram ID raqamini yuboring:")
+
+    elif action == "addchannel":
+        await state.set_state(AdminAction.addchannel)
+        await callback.message.answer(
+            "📢 Qo'shiladigan kanal/guruh username (@kanal) yoki ID sini (-1001234567890) yuboring.\n\n"
+            "⚠️ Botni oldindan o'sha kanal/guruhga ADMIN qilib qo'shib qo'ying!"
+        )
+
+    elif action == "removechannel":
+        await state.set_state(AdminAction.removechannel)
+        await callback.message.answer("🗑 O'chiriladigan kanal/guruh username yoki ID sini yuboring:")
+
+    elif action == "broadcast":
+        await state.set_state(BroadcastState.waiting_text)
+        await callback.message.answer("📨 Barchaga yuboriladigan xabar matnini kiriting:")
+
+
+@router.message(AdminAction.ban_id)
+@admin_only
+async def adm_ban_id(message: Message, state: FSMContext):
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("Faqat raqam (Telegram ID) yuboring:")
+        return
+    user_id = int(message.text.strip())
+    db.ban_user(user_id, True)
+    await state.clear()
+    await message.answer(f"🚫 {user_id} bloklandi.", reply_markup=admin_menu_kb())
+
+
+@router.message(AdminAction.unban_id)
+@admin_only
+async def adm_unban_id(message: Message, state: FSMContext):
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("Faqat raqam (Telegram ID) yuboring:")
+        return
+    user_id = int(message.text.strip())
+    db.ban_user(user_id, False)
+    await state.clear()
+    await message.answer(f"✅ {user_id} blokdan chiqarildi.", reply_markup=admin_menu_kb())
+
+
+@router.message(AdminAction.vip_id)
+@admin_only
+async def adm_vip_id(message: Message, state: FSMContext):
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("Faqat raqam (Telegram ID) yuboring:")
+        return
+    await state.update_data(vip_user_id=int(message.text.strip()))
+    await state.set_state(AdminAction.vip_days)
+    await message.answer("Necha kunlik VIP berilsin? (masalan: 30)")
+
+
+@router.message(AdminAction.vip_days)
+@admin_only
+async def adm_vip_days(message: Message, state: FSMContext):
+    if not message.text or not message.text.strip().isdigit():
+        await message.answer("Faqat raqam (kunlar soni) yuboring:")
+        return
+    data = await state.get_data()
+    user_id = data["vip_user_id"]
+    days = int(message.text.strip())
+    until_ts = int(datetime.now().timestamp()) + days * 86400
+    db.set_vip(user_id, until_ts)
+    await state.clear()
+    await message.answer(f"💎 {user_id} ga {days} kunlik VIP berildi.", reply_markup=admin_menu_kb())
+
+
+@router.message(AdminAction.addchannel)
+@admin_only
+async def adm_addchannel(message: Message, state: FSMContext, bot: Bot):
+    channel = (message.text or "").strip()
+    if not channel:
+        await message.answer("Kanal/guruh username yoki ID sini yuboring:")
+        return
     try:
         me = await bot.get_chat_member(channel, bot.id)
         if me.status not in ("administrator", "creator"):
             await message.answer(
-                f"⚠️ Bot {channel} da ADMIN emas. Avval botni admin qiling, keyin qayta urinib ko'ring."
+                f"⚠️ Bot {channel} da ADMIN emas. Avval botni admin qiling, keyin qayta yuboring."
             )
             return
     except Exception as e:
         await message.answer(
             f"❌ {channel} ga kira olmadim: {e}\n"
-            "Kanal/guruh username yoki ID to'g'riligini va botning shu yerda a'zoligini tekshiring."
+            "Username/ID to'g'riligini va botning shu yerda a'zoligini tekshiring."
         )
         return
-
     db.add_required_channel(channel)
-    await message.answer(f"✅ {channel} majburiy obuna ro'yxatiga qo'shildi.")
+    await state.clear()
+    await message.answer(f"✅ {channel} majburiy obuna ro'yxatiga qo'shildi.", reply_markup=admin_menu_kb())
 
 
-@router.message(Command("removechannel"))
+@router.message(AdminAction.removechannel)
 @admin_only
-async def cmd_removechannel(message: Message):
-    parts = message.text.split(maxsplit=1)
-    if len(parts) != 2:
-        await message.answer("Foydalanish: /removechannel <@kanal_username>")
+async def adm_removechannel(message: Message, state: FSMContext):
+    channel = (message.text or "").strip()
+    if not channel:
+        await message.answer("Kanal/guruh username yoki ID sini yuboring:")
         return
-    channel = parts[1].strip()
     db.remove_required_channel(channel)
-    await message.answer(f"✅ {channel} ro'yxatdan olib tashlandi.")
-
-
-@router.message(Command("listchannels"))
-@admin_only
-async def cmd_listchannels(message: Message):
-    channels = db.get_required_channels()
-    if not channels:
-        await message.answer("Hozircha majburiy kanal/guruh o'rnatilmagan.")
-        return
-    await message.answer("📢 Majburiy obuna ro'yxati:\n" + "\n".join(f"• {c}" for c in channels))
-
-
-@router.message(Command("ban"))
-@admin_only
-async def cmd_ban(message: Message):
-    parts = message.text.split()
-    if len(parts) != 2 or not parts[1].isdigit():
-        await message.answer("Foydalanish: /ban <user_id>")
-        return
-    db.ban_user(int(parts[1]), True)
-    await message.answer(f"🚫 {parts[1]} bloklandi.")
-
-
-@router.message(Command("unban"))
-@admin_only
-async def cmd_unban(message: Message):
-    parts = message.text.split()
-    if len(parts) != 2 or not parts[1].isdigit():
-        await message.answer("Foydalanish: /unban <user_id>")
-        return
-    db.ban_user(int(parts[1]), False)
-    await message.answer(f"✅ {parts[1]} blokdan chiqarildi.")
-
-
-@router.message(Command("setvip"))
-@admin_only
-async def cmd_setvip(message: Message):
-    parts = message.text.split()
-    if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
-        await message.answer("Foydalanish: /setvip <user_id> <kunlar_soni>")
-        return
-    user_id, days = int(parts[1]), int(parts[2])
-    until_ts = int(datetime.now().timestamp()) + days * 86400
-    db.set_vip(user_id, until_ts)
-    await message.answer(f"💎 {user_id} ga {days} kunlik VIP berildi.")
-
-
-@router.message(Command("broadcast"))
-@admin_only
-async def cmd_broadcast_start(message: Message, state: FSMContext):
-    await state.set_state(BroadcastState.waiting_text)
-    await message.answer("Barchaga yuboriladigan xabar matnini kiriting:")
+    await state.clear()
+    await message.answer(f"✅ {channel} ro'yxatdan olib tashlandi.", reply_markup=admin_menu_kb())
 
 
 @router.message(BroadcastState.waiting_text)
@@ -578,7 +632,7 @@ async def cmd_broadcast_send(message: Message, state: FSMContext, bot: Bot):
         except Exception:
             failed += 1
         await asyncio.sleep(0.05)  # Telegram rate-limit'ga urilmaslik uchun
-    await message.answer(f"✅ Yuborildi: {sent} | ❌ Xato: {failed}")
+    await message.answer(f"✅ Yuborildi: {sent} | ❌ Xato: {failed}", reply_markup=admin_menu_kb())
 
 
 # ============ MAIN ============
