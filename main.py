@@ -442,12 +442,11 @@ async def report_cb(callback: CallbackQuery):
 @router.message(Command("admin"))
 @admin_only
 async def admin_panel(message: Message):
-    # Logga admin ID ni chiqarib tekshiramiz
-    log.info(f"Admin panelga kirish urinishi. User ID: {message.from_user.id}. ADMIN_IDS: {ADMIN_IDS}")
-    
     stats = db.get_stats()
     channels = db.get_required_channels()
     channels_text = "\n".join(f"• {c}" for c in channels) if channels else "— (o'rnatilmagan)"
+    
+    # MATN O'ZGARTIRILDI (HTML bilan konflikt qilmasligi uchun < > o'rniga [ ] ishlatildi)
     text = (
         "🛠 <b>Admin panel</b>\n\n"
         f"👥 Jami foydalanuvchi: {stats['total']}\n"
@@ -459,14 +458,71 @@ async def admin_panel(message: Message):
         f"📢 Majburiy obuna kanal/guruhlari:\n{channels_text}\n\n"
         "Buyruqlar:\n"
         "/broadcast — barchaga xabar yuborish\n"
-        "/ban <user_id> — foydalanuvchini bloklash\n"
-        "/unban <user_id> — blokdan chiqarish\n"
-        "/setvip <user_id> <kunlar> — VIP berish\n"
-        "/addchannel <@username yoki -100...> — majburiy kanal/guruh qo'shish\n"
-        "/removechannel <@username yoki -100...> — olib tashlash\n"
+        "/ban [user_id] — foydalanuvchini bloklash\n"
+        "/unban [user_id] — blokdan chiqarish\n"
+        "/setvip [user_id] [kunlar] — VIP berish\n"
+        "/addchannel [kanal_username] — majburiy kanal/guruh qo'shish\n"
+        "/removechannel [kanal_username] — olib tashlash\n"
         "/listchannels — ro'yxatni ko'rish"
     )
     await message.answer(text, parse_mode="HTML")
+
+# Qolgan funksiyalarda ham < > belgilarini [ ] ga almashtiring:
+
+@router.message(Command("addchannel"))
+@admin_only
+async def cmd_addchannel(message: Message, bot: Bot):
+    parts = message.text.split(maxsplit=1)
+    if len(parts) != 2:
+        await message.answer(
+            "Foydalanish: /addchannel [username]\n"
+            "Yopiq guruh uchun: /addchannel -1001234567890"
+        )
+        return
+    channel = parts[1].strip()
+    try:
+        me = await bot.get_chat_member(channel, bot.id)
+        if me.status not in ("administrator", "creator"):
+            await message.answer(f"⚠️ Bot {channel} da ADMIN emas.")
+            return
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
+        return
+
+    db.add_required_channel(channel)
+    await message.answer(f"✅ {channel} qo'shildi.")
+
+@router.message(Command("ban"))
+@admin_only
+async def cmd_ban(message: Message):
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("Foydalanish: /ban [user_id]")
+        return
+    db.ban_user(int(parts[1]), True)
+    await message.answer(f"🚫 {parts[1]} bloklandi.")
+
+@router.message(Command("unban"))
+@admin_only
+async def cmd_unban(message: Message):
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("Foydalanish: /unban [user_id]")
+        return
+    db.ban_user(int(parts[1]), False)
+    await message.answer(f"✅ {parts[1]} blokdan chiqarildi.")
+
+@router.message(Command("setvip"))
+@admin_only
+async def cmd_setvip(message: Message):
+    parts = message.text.split()
+    if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
+        await message.answer("Foydalanish: /setvip [user_id] [kunlar]")
+        return
+    user_id, days = int(parts[1]), int(parts[2])
+    until_ts = int(datetime.now().timestamp()) + days * 86400
+    db.set_vip(user_id, until_ts)
+    await message.answer(f"💎 {user_id} ga {days} kunlik VIP berildi.")
 
 
 @router.message(Command("addchannel"))
