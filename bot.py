@@ -336,7 +336,7 @@ async def vip_info(message: Message):
         "• Butun O'zbekiston bo'yicha profillarni ko'rish (faqat o'z viloyatingiz emas)\n"
         "• Profilingiz boshqalarga birinchi navbatda ko'rsatiladi\n"
         "• Maxsus 💎 belgisi\n\n"
-        "VIP sotib olish uchun admin bilan bog'laning @abe_vlog.",
+        "VIP sotib olish uchun admin bilan bog'laning.",
         parse_mode="HTML",
     )
 
@@ -398,14 +398,15 @@ async def reaction_cb(callback: CallbackQuery, bot: Bot):
         if is_match:
             me = db.get_user(from_id)
             other = db.get_user(target_id)
-            match_text_me = f"🎉 Yangi moslik (match)! {other['full_name']} sizga ham yoqdingiz!"
-            match_text_other = f"🎉 Yangi moslik (match)! {me['full_name']} sizga ham yoqdingiz!"
+
+            def contact_line(user):
+                return f"\n👉 @{user['username']}" if user.get("username") else "\n👉 Bog'lanish uchun profilidagi ma'lumotlardan foydalaning."
+
+            match_text_me = f"🎉 Yangi moslik (match)! {other['full_name']} sizga ham yoqdingiz!" + contact_line(other)
+            match_text_other = f"🎉 Yangi moslik (match)! {me['full_name']} sizga ham yoqdingiz!" + contact_line(me)
             try:
                 await bot.send_message(from_id, match_text_me)
-                if me.get("username"):
-                    await bot.send_message(target_id, match_text_other + f"\n@{me['username']}")
-                else:
-                    await bot.send_message(target_id, match_text_other)
+                await bot.send_message(target_id, match_text_other)
             except Exception as e:
                 log.warning(f"Match xabarini yuborishda xato: {e}")
     else:
