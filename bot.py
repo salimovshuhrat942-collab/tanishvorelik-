@@ -336,7 +336,7 @@ async def vip_info(message: Message):
         "• Butun O'zbekiston bo'yicha profillarni ko'rish (faqat o'z viloyatingiz emas)\n"
         "• Profilingiz boshqalarga birinchi navbatda ko'rsatiladi\n"
         "• Maxsus 💎 belgisi\n\n"
-        "VIP sotib olish uchun admin bilan bog'laning.",
+        "VIP sotib olish uchun admin bilan bog'laning @abe_vlog.",
         parse_mode="HTML",
     )
 
