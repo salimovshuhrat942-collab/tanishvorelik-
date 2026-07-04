@@ -442,6 +442,9 @@ async def report_cb(callback: CallbackQuery):
 @router.message(Command("admin"))
 @admin_only
 async def admin_panel(message: Message):
+    # Logga admin ID ni chiqarib tekshiramiz
+    log.info(f"Admin panelga kirish urinishi. User ID: {message.from_user.id}. ADMIN_IDS: {ADMIN_IDS}")
+    
     stats = db.get_stats()
     channels = db.get_required_channels()
     channels_text = "\n".join(f"• {c}" for c in channels) if channels else "— (o'rnatilmagan)"
