@@ -37,6 +37,95 @@ REQUIRED_CHANNELS = [
 
 DB_PATH = "users.db"
 
+# ============================================================
+#            O'ZBEKISTON VILOYATLARI VA TUMANLARI
+# ============================================================
+REGIONS = [
+    ("Qoraqalpog'iston Respublikasi", [
+        "Nukus shahri", "Amudaryo tumani", "Beruniy tumani", "Kegeyli tumani",
+        "Qonliko'l tumani", "Qorao'zak tumani", "Qo'ng'irot tumani", "Mo'ynoq tumani",
+        "Nukus tumani", "Taxiatosh tumani", "Taxtako'pir tumani", "To'rtko'l tumani",
+        "Xo'jayli tumani", "Chimboy tumani", "Sho'manoy tumani", "Ellikqal'a tumani",
+    ]),
+    ("Andijon viloyati", [
+        "Andijon shahri", "Xonabod shahri", "Andijon tumani", "Asaka tumani",
+        "Baliqchi tumani", "Bo'z tumani", "Buloqboshi tumani", "Jalaquduq tumani",
+        "Izboskan tumani", "Qo'rg'ontepa tumani", "Marhamat tumani", "Oltinko'l tumani",
+        "Paxtaobod tumani", "Ulug'nor tumani", "Xo'jaobod tumani", "Shahrixon tumani",
+    ]),
+    ("Buxoro viloyati", [
+        "Buxoro shahri", "Kogon shahri", "Buxoro tumani", "Vobkent tumani",
+        "Jondor tumani", "Kogon tumani", "Olot tumani", "Peshku tumani",
+        "Romitan tumani", "Shofirkon tumani", "Qorovulbozor tumani", "Qorako'l tumani",
+        "G'ijduvon tumani",
+    ]),
+    ("Jizzax viloyati", [
+        "Jizzax shahri", "Arnasoy tumani", "Baxmal tumani", "Do'stlik tumani",
+        "Zarbdor tumani", "Zafarobod tumani", "Zomin tumani", "Mirzacho'l tumani",
+        "Paxtakor tumani", "Forish tumani", "Sharof Rashidov tumani", "G'allaorol tumani",
+        "Yangiobod tumani",
+    ]),
+    ("Qashqadaryo viloyati", [
+        "Qarshi shahri", "Shahrisabz shahri", "Dehqonobod tumani", "Kasbi tumani",
+        "Kitob tumani", "Koson tumani", "Mirishkor tumani", "Muborak tumani",
+        "Nishon tumani", "Chiroqchi tumani", "Shahrisabz tumani", "Yakkabog' tumani",
+        "Qamashi tumani", "Qarshi tumani", "G'uzor tumani",
+    ]),
+    ("Navoiy viloyati", [
+        "Navoiy shahri", "Zarafshon shahri", "Karmana tumani", "Konimex tumani",
+        "Navbahor tumani", "Nurota tumani", "Tomdi tumani", "Uchquduq tumani",
+        "Xatirchi tumani", "Qiziltepa tumani",
+    ]),
+    ("Namangan viloyati", [
+        "Namangan shahri", "Kosonsoy tumani", "Mingbuloq tumani", "Namangan tumani",
+        "Norin tumani", "Pop tumani", "To'raqo'rg'on tumani", "Uychi tumani",
+        "Uchqo'rg'on tumani", "Chortoq tumani", "Chust tumani", "Yangiqo'rg'on tumani",
+    ]),
+    ("Samarqand viloyati", [
+        "Samarqand shahri", "Kattaqo'rg'on shahri", "Bulung'ur tumani", "Jomboy tumani",
+        "Ishtixon tumani", "Kattaqo'rg'on tumani", "Narpay tumani", "Nurobod tumani",
+        "Oqdaryo tumani", "Payariq tumani", "Pastdarg'om tumani", "Paxtachi tumani",
+        "Samarqand tumani", "Toyloq tumani", "Urgut tumani", "Qo'shrabot tumani",
+    ]),
+    ("Surxondaryo viloyati", [
+        "Termiz shahri", "Angor tumani", "Boysun tumani", "Denov tumani",
+        "Jarqo'rg'on tumani", "Muzrobod tumani", "Oltinsoy tumani", "Sariosiyo tumani",
+        "Termiz tumani", "Uzun tumani", "Sherobod tumani", "Sho'rchi tumani",
+        "Qiziriq tumani", "Qumqo'rg'on tumani", "Bandixon tumani",
+    ]),
+    ("Sirdaryo viloyati", [
+        "Guliston shahri", "Yangiyer shahri", "Shirin shahri", "Boyovut tumani",
+        "Guliston tumani", "Mirzaobod tumani", "Oqoltin tumani", "Sardoba tumani",
+        "Sayxunobod tumani", "Sirdaryo tumani", "Xovos tumani",
+    ]),
+    ("Toshkent viloyati", [
+        "Nurafshon shahri", "Angren shahri", "Bekobod shahri", "Olmaliq shahri",
+        "Ohangaron shahri", "Chirchiq shahri", "Yangiyo'l shahri", "Bekobod tumani",
+        "Bo'ka tumani", "Bo'stonliq tumani", "Zangiota tumani", "Qibray tumani",
+        "Quyichirchiq tumani", "Oqqo'rg'on tumani", "Ohangaron tumani", "Parkent tumani",
+        "Piskent tumani", "Toshkent tumani", "O'rtachirchiq tumani", "Chinoz tumani",
+        "Yuqorichirchiq tumani", "Yangiyo'l tumani",
+    ]),
+    ("Farg'ona viloyati", [
+        "Farg'ona shahri", "Marg'ilon shahri", "Quvasoy shahri", "Qo'qon shahri",
+        "Beshariq tumani", "Bog'dod tumani", "Buvayda tumani", "Dang'ara tumani",
+        "Yozyovon tumani", "Quva tumani", "Qo'shtepa tumani", "Oltiariq tumani",
+        "Rishton tumani", "So'x tumani", "Toshloq tumani", "O'zbekiston tumani",
+        "Uchko'prik tumani", "Farg'ona tumani", "Furqat tumani",
+    ]),
+    ("Xorazm viloyati", [
+        "Urganch shahri", "Xiva shahri", "Bog'ot tumani", "Gurlan tumani",
+        "Urganch tumani", "Xiva tumani", "Xonqa tumani", "Hazorasp tumani",
+        "Shovot tumani", "Yangiariq tumani", "Yangibozor tumani", "Qo'shko'pir tumani",
+        "Tuproqqal'a tumani",
+    ]),
+    ("Toshkent shahri", [
+        "Bektemir tumani", "Mirzo Ulug'bek tumani", "Mirobod tumani", "Olmazor tumani",
+        "Sirg'ali tumani", "Uchtepa tumani", "Chilonzor tumani", "Shayxontohur tumani",
+        "Yunusobod tumani", "Yakkasaroy tumani", "Yashnobod tumani", "Yangihayot tumani",
+    ]),
+]
+
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -119,11 +208,16 @@ def db_get_profile(user_id: int):
     return row
 
 
-def db_random_profile(exclude_id: int):
+def db_random_profile(exclude_id: int, wanted_gender: str = None):
     conn = get_conn()
-    row = conn.execute("""SELECT * FROM profiles
-                           WHERE user_id != ? AND is_banned = 0 AND name IS NOT NULL
-                           ORDER BY RANDOM() LIMIT 1""", (exclude_id,)).fetchone()
+    if wanted_gender:
+        row = conn.execute("""SELECT * FROM profiles
+                               WHERE user_id != ? AND is_banned = 0 AND name IS NOT NULL AND gender = ?
+                               ORDER BY RANDOM() LIMIT 1""", (exclude_id, wanted_gender)).fetchone()
+    else:
+        row = conn.execute("""SELECT * FROM profiles
+                               WHERE user_id != ? AND is_banned = 0 AND name IS NOT NULL
+                               ORDER BY RANDOM() LIMIT 1""", (exclude_id,)).fetchone()
     conn.close()
     return row
 
@@ -180,7 +274,8 @@ class ProfileState(StatesGroup):
     name = State()
     age = State()
     gender = State()
-    city = State()
+    region = State()
+    district = State()
     photo = State()
 
 
@@ -267,6 +362,32 @@ def gender_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def region_kb() -> InlineKeyboardMarkup:
+    kb, row = [], []
+    for i, (name, _) in enumerate(REGIONS):
+        row.append(InlineKeyboardButton(text=name, callback_data=f"region_{i}"))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def district_kb(region_idx: int) -> InlineKeyboardMarkup:
+    districts = REGIONS[region_idx][1]
+    kb, row = [], []
+    for i, d in enumerate(districts):
+        row.append(InlineKeyboardButton(text=d, callback_data=f"district_{i}"))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+    kb.append([InlineKeyboardButton(text="🔙 Viloyatni qayta tanlash", callback_data="back_to_region")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
 def admin_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
@@ -314,7 +435,7 @@ async def back_menu(callback: types.CallbackQuery, state: FSMContext):
 async def start_reg(callback: types.CallbackQuery, state: FSMContext):
     if not await require_subscription(callback):
         return
-    await callback.message.answer("1/5 Ismingizni yozing:")
+    await callback.message.answer("1/6 Ismingizni yozing:")
     await state.set_state(ProfileState.name)
     await callback.answer()
 
@@ -325,7 +446,7 @@ async def get_name(message: types.Message, state: FSMContext):
         await message.answer("❌ Iltimos, to'g'ri ism kiriting (50 belgidan kam):")
         return
     await state.update_data(name=message.text)
-    await message.answer("2/5 Yoshingizni kiriting (raqamda):")
+    await message.answer("2/6 Yoshingizni kiriting (raqamda):")
     await state.set_state(ProfileState.age)
 
 
@@ -335,7 +456,7 @@ async def get_age(message: types.Message, state: FSMContext):
         await message.answer("❌ Iltimos, yoshingizni to'g'ri raqamda kiriting (masalan: 22):")
         return
     await state.update_data(age=message.text)
-    await message.answer("3/5 Jinsingizni tanlang:", reply_markup=gender_kb())
+    await message.answer("3/6 Jinsingizni tanlang:", reply_markup=gender_kb())
     await state.set_state(ProfileState.gender)
 
 
@@ -343,19 +464,43 @@ async def get_age(message: types.Message, state: FSMContext):
 async def get_gender(callback: types.CallbackQuery, state: FSMContext):
     gender = "Erkak" if callback.data == "gender_male" else "Ayol"
     await state.update_data(gender=gender)
-    await callback.message.answer("4/5 Shahringizni yozing:")
-    await state.set_state(ProfileState.city)
+    await callback.message.answer("4/6 Viloyatingizni tanlang:", reply_markup=region_kb())
+    await state.set_state(ProfileState.region)
     await callback.answer()
 
 
-@dp.message(ProfileState.city)
-async def get_city(message: types.Message, state: FSMContext):
-    if not message.text or len(message.text) > 50:
-        await message.answer("❌ Iltimos, shahar nomini to'g'ri kiriting:")
-        return
-    await state.update_data(city=message.text)
-    await message.answer("5/5 Rasmingizni yuboring:")
+@dp.callback_query(ProfileState.region, F.data.startswith("region_"))
+async def get_region(callback: types.CallbackQuery, state: FSMContext):
+    idx = int(callback.data.split("_")[1])
+    region_name, _ = REGIONS[idx]
+    await state.update_data(region_idx=idx, region_name=region_name)
+    await callback.message.edit_text(
+        f"Viloyat: {region_name}\n\n5/6 Tumaningizni/shahringizni tanlang:",
+        reply_markup=district_kb(idx)
+    )
+    await state.set_state(ProfileState.district)
+    await callback.answer()
+
+
+@dp.callback_query(ProfileState.district, F.data == "back_to_region")
+async def back_to_region(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("4/6 Viloyatingizni tanlang:", reply_markup=region_kb())
+    await state.set_state(ProfileState.region)
+    await callback.answer()
+
+
+@dp.callback_query(ProfileState.district, F.data.startswith("district_"))
+async def get_district(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    idx = int(callback.data.split("_")[1])
+    region_idx = data['region_idx']
+    district_name = REGIONS[region_idx][1][idx]
+    city_value = f"{district_name}, {data['region_name']}"
+    await state.update_data(city=city_value)
+    await callback.message.edit_text(f"📍 Tanlandi: {city_value}")
+    await callback.message.answer("6/6 Endi rasmingizni yuboring:")
     await state.set_state(ProfileState.photo)
+    await callback.answer()
 
 
 @dp.message(ProfileState.photo, F.photo)
@@ -414,9 +559,11 @@ async def random_user(callback: types.CallbackQuery):
         await callback.answer("Avval profilingizni yarating!", show_alert=True)
         return
 
-    user = db_random_profile(callback.from_user.id)
+    opposite_gender = "Ayol" if my_profile_row['gender'] == "Erkak" else "Erkak"
+    user = db_random_profile(callback.from_user.id, opposite_gender)
     if not user:
-        await callback.answer("Hozircha boshqa foydalanuvchilar yo'q.", show_alert=True)
+        label = "qizlar" if opposite_gender == "Ayol" else "yigitlar"
+        await callback.answer(f"Hozircha mos keladigan {label} yo'q.", show_alert=True)
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
