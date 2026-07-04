@@ -1,1 +1,0 @@
-# Tanishuv Bot Admin Panel
