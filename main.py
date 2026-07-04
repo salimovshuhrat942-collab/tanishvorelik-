@@ -26,7 +26,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 # ============================================================
 #                        SOZLAMALAR
 # ============================================================
-TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
+TOKEN = "8842602846:AAFqTEtf3qdTuifRxw8fDOb7EZeki_7aPHc"
 ADMIN_IDS = [8007670371]          # bir nechta admin bo'lsa: [123, 456]
 
 # MAJBURIY OBUNA — kanal @username yoki -100... ID bo'lishi kerak
