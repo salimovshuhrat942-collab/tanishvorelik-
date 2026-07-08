@@ -1,658 +1,729 @@
-# bot.py — Tanishuv Bot PRO
-# aiogram 3 | SQLite (Volume-persistent) | 100% himoyalangan
 import asyncio
-import html
+import sqlite3
+import logging
 from datetime import datetime
 
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.filters import CommandStart, Command
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove,
-)
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
-import db
-from config import (
-    BOT_TOKEN, ADMIN_IDS, REQUIRED_CHANNEL, MIN_AGE, MAX_AGE,
-    MAX_NAME_LEN, MAX_BIO_LEN, log,
-)
-from locations import REGION_NAMES, get_districts
-from security import (
-    flood_guard, admin_only, is_admin, sanitize_text, validate_age, is_subscribed,
-)
+# ============================================================
+#                        SOZLAMALAR
+# ============================================================
+TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
+ADMIN_IDS = [8007670371]          # bir nechta admin bo'lsa: [123, 456]
 
-router = Router()
+# MAJBURIY OBUNA — kanal @username yoki -100... ID bo'lishi kerak
+# Bot albatta shu kanal(lar)da ADMIN bo'lishi shart, aks holda tekshira olmaydi!
+REQUIRED_CHANNELS = [
+    {"chat_id": "@yoryor_rasmi", "title": "Yoryor guruhi", "url": "https://t.me/yoryor_rasmi"},
+]
+
+DB_PATH = "users.db"
+
+# ============================================================
+#            O'ZBEKISTON VILOYATLARI VA TUMANLARI
+# ============================================================
+REGIONS = [
+    ("Qoraqalpog'iston Respublikasi", [
+        "Nukus shahri", "Amudaryo tumani", "Beruniy tumani", "Kegeyli tumani",
+        "Qonliko'l tumani", "Qorao'zak tumani", "Qo'ng'irot tumani", "Mo'ynoq tumani",
+        "Nukus tumani", "Taxiatosh tumani", "Taxtako'pir tumani", "To'rtko'l tumani",
+        "Xo'jayli tumani", "Chimboy tumani", "Sho'manoy tumani", "Ellikqal'a tumani",
+    ]),
+    ("Andijon viloyati", [
+        "Andijon shahri", "Xonabod shahri", "Andijon tumani", "Asaka tumani",
+        "Baliqchi tumani", "Bo'z tumani", "Buloqboshi tumani", "Jalaquduq tumani",
+        "Izboskan tumani", "Qo'rg'ontepa tumani", "Marhamat tumani", "Oltinko'l tumani",
+        "Paxtaobod tumani", "Ulug'nor tumani", "Xo'jaobod tumani", "Shahrixon tumani",
+    ]),
+    ("Buxoro viloyati", [
+        "Buxoro shahri", "Kogon shahri", "Buxoro tumani", "Vobkent tumani",
+        "Jondor tumani", "Kogon tumani", "Olot tumani", "Peshku tumani",
+        "Romitan tumani", "Shofirkon tumani", "Qorovulbozor tumani", "Qorako'l tumani",
+        "G'ijduvon tumani",
+    ]),
+    ("Jizzax viloyati", [
+        "Jizzax shahri", "Arnasoy tumani", "Baxmal tumani", "Do'stlik tumani",
+        "Zarbdor tumani", "Zafarobod tumani", "Zomin tumani", "Mirzacho'l tumani",
+        "Paxtakor tumani", "Forish tumani", "Sharof Rashidov tumani", "G'allaorol tumani",
+        "Yangiobod tumani",
+    ]),
+    ("Qashqadaryo viloyati", [
+        "Qarshi shahri", "Shahrisabz shahri", "Dehqonobod tumani", "Kasbi tumani",
+        "Kitob tumani", "Koson tumani", "Mirishkor tumani", "Muborak tumani",
+        "Nishon tumani", "Chiroqchi tumani", "Shahrisabz tumani", "Yakkabog' tumani",
+        "Qamashi tumani", "Qarshi tumani", "G'uzor tumani",
+    ]),
+    ("Navoiy viloyati", [
+        "Navoiy shahri", "Zarafshon shahri", "Karmana tumani", "Konimex tumani",
+        "Navbahor tumani", "Nurota tumani", "Tomdi tumani", "Uchquduq tumani",
+        "Xatirchi tumani", "Qiziltepa tumani",
+    ]),
+    ("Namangan viloyati", [
+        "Namangan shahri", "Kosonsoy tumani", "Mingbuloq tumani", "Namangan tumani",
+        "Norin tumani", "Pop tumani", "To'raqo'rg'on tumani", "Uychi tumani",
+        "Uchqo'rg'on tumani", "Chortoq tumani", "Chust tumani", "Yangiqo'rg'on tumani",
+    ]),
+    ("Samarqand viloyati", [
+        "Samarqand shahri", "Kattaqo'rg'on shahri", "Bulung'ur tumani", "Jomboy tumani",
+        "Ishtixon tumani", "Kattaqo'rg'on tumani", "Narpay tumani", "Nurobod tumani",
+        "Oqdaryo tumani", "Payariq tumani", "Pastdarg'om tumani", "Paxtachi tumani",
+        "Samarqand tumani", "Toyloq tumani", "Urgut tumani", "Qo'shrabot tumani",
+    ]),
+    ("Surxondaryo viloyati", [
+        "Termiz shahri", "Angor tumani", "Boysun tumani", "Denov tumani",
+        "Jarqo'rg'on tumani", "Muzrobod tumani", "Oltinsoy tumani", "Sariosiyo tumani",
+        "Termiz tumani", "Uzun tumani", "Sherobod tumani", "Sho'rchi tumani",
+        "Qiziriq tumani", "Qumqo'rg'on tumani", "Bandixon tumani",
+    ]),
+    ("Sirdaryo viloyati", [
+        "Guliston shahri", "Yangiyer shahri", "Shirin shahri", "Boyovut tumani",
+        "Guliston tumani", "Mirzaobod tumani", "Oqoltin tumani", "Sardoba tumani",
+        "Sayxunobod tumani", "Sirdaryo tumani", "Xovos tumani",
+    ]),
+    ("Toshkent viloyati", [
+        "Nurafshon shahri", "Angren shahri", "Bekobod shahri", "Olmaliq shahri",
+        "Ohangaron shahri", "Chirchiq shahri", "Yangiyo'l shahri", "Bekobod tumani",
+        "Bo'ka tumani", "Bo'stonliq tumani", "Zangiota tumani", "Qibray tumani",
+        "Quyichirchiq tumani", "Oqqo'rg'on tumani", "Ohangaron tumani", "Parkent tumani",
+        "Piskent tumani", "Toshkent tumani", "O'rtachirchiq tumani", "Chinoz tumani",
+        "Yuqorichirchiq tumani", "Yangiyo'l tumani",
+    ]),
+    ("Farg'ona viloyati", [
+        "Farg'ona shahri", "Marg'ilon shahri", "Quvasoy shahri", "Qo'qon shahri",
+        "Beshariq tumani", "Bog'dod tumani", "Buvayda tumani", "Dang'ara tumani",
+        "Yozyovon tumani", "Quva tumani", "Qo'shtepa tumani", "Oltiariq tumani",
+        "Rishton tumani", "So'x tumani", "Toshloq tumani", "O'zbekiston tumani",
+        "Uchko'prik tumani", "Farg'ona tumani", "Furqat tumani",
+    ]),
+    ("Xorazm viloyati", [
+        "Urganch shahri", "Xiva shahri", "Bog'ot tumani", "Gurlan tumani",
+        "Urganch tumani", "Xiva tumani", "Xonqa tumani", "Hazorasp tumani",
+        "Shovot tumani", "Yangiariq tumani", "Yangibozor tumani", "Qo'shko'pir tumani",
+        "Tuproqqal'a tumani",
+    ]),
+    ("Toshkent shahri", [
+        "Bektemir tumani", "Mirzo Ulug'bek tumani", "Mirobod tumani", "Olmazor tumani",
+        "Sirg'ali tumani", "Uchtepa tumani", "Chilonzor tumani", "Shayxontohur tumani",
+        "Yunusobod tumani", "Yakkasaroy tumani", "Yashnobod tumani", "Yangihayot tumani",
+    ]),
+]
+
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+# MUHIM: bot guruhda admin bo'lgani uchun (majburiy obunani tekshirish uchun),
+# Telegram uni guruhdagi BARCHA xabarlarni ko'radigan qilib qo'yadi.
+# Shu sabab botni faqat SHAXSIY chatlarda ishlaydigan qilib cheklaymiz,
+# aks holda bot guruhga xabar yozib yubora boshlaydi.
+dp.message.filter(F.chat.type == "private")
 
 
-# ============ FSM STATES ============
+# ============================================================
+#                          BAZA
+# ============================================================
+def get_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-class Registration(StatesGroup):
-    full_name = State()
+
+def init_db():
+    conn = get_conn()
+    conn.execute("""CREATE TABLE IF NOT EXISTS profiles (
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        name TEXT,
+        age TEXT,
+        gender TEXT,
+        city TEXT,
+        photo_id TEXT,
+        is_banned INTEGER DEFAULT 0,
+        created_at TEXT
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS likes (
+        from_id INTEGER,
+        to_id INTEGER,
+        created_at TEXT,
+        PRIMARY KEY (from_id, to_id)
+    )""")
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+
+def db_add_user_if_missing(user: types.User):
+    conn = get_conn()
+    row = conn.execute("SELECT user_id FROM profiles WHERE user_id=?", (user.id,)).fetchone()
+    if not row:
+        conn.execute(
+            "INSERT INTO profiles (user_id, username, created_at) VALUES (?, ?, ?)",
+            (user.id, user.username, datetime.now().isoformat())
+        )
+        conn.commit()
+    conn.close()
+
+
+def db_save_profile(user_id: int, username: str, data: dict):
+    conn = get_conn()
+    conn.execute("""INSERT INTO profiles (user_id, username, name, age, gender, city, photo_id, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(user_id) DO UPDATE SET
+                        username=excluded.username,
+                        name=excluded.name,
+                        age=excluded.age,
+                        gender=excluded.gender,
+                        city=excluded.city,
+                        photo_id=excluded.photo_id""",
+                 (user_id, username, data['name'], data['age'], data['gender'], data['city'],
+                  data['photo'], datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def db_get_profile(user_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM profiles WHERE user_id=?", (user_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def db_random_profile(exclude_id: int, wanted_gender: str = None):
+    conn = get_conn()
+    if wanted_gender:
+        row = conn.execute("""SELECT * FROM profiles
+                               WHERE user_id != ? AND is_banned = 0 AND name IS NOT NULL AND gender = ?
+                               ORDER BY RANDOM() LIMIT 1""", (exclude_id, wanted_gender)).fetchone()
+    else:
+        row = conn.execute("""SELECT * FROM profiles
+                               WHERE user_id != ? AND is_banned = 0 AND name IS NOT NULL
+                               ORDER BY RANDOM() LIMIT 1""", (exclude_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def db_add_like(from_id: int, to_id: int) -> bool:
+    """Like qo'shadi, agar ikkalasi ham bir-birini like qilgan bo'lsa True (match) qaytaradi."""
+    conn = get_conn()
+    conn.execute("INSERT OR IGNORE INTO likes (from_id, to_id, created_at) VALUES (?, ?, ?)",
+                 (from_id, to_id, datetime.now().isoformat()))
+    conn.commit()
+    mutual = conn.execute("SELECT 1 FROM likes WHERE from_id=? AND to_id=?", (to_id, from_id)).fetchone()
+    conn.close()
+    return bool(mutual)
+
+
+def db_stats():
+    conn = get_conn()
+    total = conn.execute("SELECT COUNT(*) c FROM profiles WHERE name IS NOT NULL").fetchone()['c']
+    banned = conn.execute("SELECT COUNT(*) c FROM profiles WHERE is_banned=1").fetchone()['c']
+    likes = conn.execute("SELECT COUNT(*) c FROM likes").fetchone()['c']
+    today = datetime.now().date().isoformat()
+    today_new = conn.execute(
+        "SELECT COUNT(*) c FROM profiles WHERE date(created_at)=? AND name IS NOT NULL", (today,)
+    ).fetchone()['c']
+    conn.close()
+    return {"total": total, "banned": banned, "likes": likes, "today": today_new}
+
+
+def db_all_user_ids():
+    conn = get_conn()
+    rows = conn.execute("SELECT user_id FROM profiles WHERE is_banned=0").fetchall()
+    conn.close()
+    return [r['user_id'] for r in rows]
+
+
+def db_set_ban(user_id: int, banned: bool):
+    conn = get_conn()
+    conn.execute("UPDATE profiles SET is_banned=? WHERE user_id=?", (1 if banned else 0, user_id))
+    conn.commit()
+    conn.close()
+
+
+def db_delete_profile(user_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM profiles WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+# ============================================================
+#                        HOLATLAR (FSM)
+# ============================================================
+class ProfileState(StatesGroup):
+    name = State()
     age = State()
     gender = State()
     region = State()
     district = State()
     photo = State()
-    bio = State()
 
 
-class BroadcastState(StatesGroup):
-    waiting_text = State()
+class AdminState(StatesGroup):
+    broadcast = State()
+    ban_user = State()
+    unban_user = State()
 
 
-# ============ KEYBOARDS ============
-
-def main_menu_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🔍 Ko'rish")],
-            [KeyboardButton(text="👤 Mening profilim"), KeyboardButton(text="💎 VIP")],
-            [KeyboardButton(text="❌ Profilni o'chirish")],
-        ],
-        resize_keyboard=True,
-    )
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
 
 
-def gender_kb():
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="👨 Erkak"), KeyboardButton(text="👩 Ayol")]],
-        resize_keyboard=True, one_time_keyboard=True,
-    )
-
-
-def regions_kb():
-    rows, tmp = [], []
-    for i, name in enumerate(REGION_NAMES, 1):
-        tmp.append(KeyboardButton(text=name))
-        if i % 2 == 0:
-            rows.append(tmp)
-            tmp = []
-    if tmp:
-        rows.append(tmp)
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, one_time_keyboard=True)
-
-
-def districts_kb(region: str):
-    rows, tmp = [], []
-    for i, name in enumerate(get_districts(region), 1):
-        tmp.append(KeyboardButton(text=name))
-        if i % 2 == 0:
-            rows.append(tmp)
-            tmp = []
-    if tmp:
-        rows.append(tmp)
-    rows.append([KeyboardButton(text="⬅️ Orqaga")])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, one_time_keyboard=True)
-
-
-def skip_kb():
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="O'tkazib yuborish")]],
-                                resize_keyboard=True, one_time_keyboard=True)
-
-
-def reaction_kb(target_id: int):
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="👎", callback_data=f"skip:{target_id}"),
-        InlineKeyboardButton(text="⛔️", callback_data=f"report:{target_id}"),
-        InlineKeyboardButton(text="❤️", callback_data=f"like:{target_id}"),
-    ]])
-
-
-# ============ HELPERS ============
-
-async def require_subscription(message_or_cb, bot: Bot) -> bool:
-    from security import get_missing_channels
-    user_id = message_or_cb.from_user.id
-    channels = db.get_required_channels()
-    if not channels:
-        # Agar admin panelda hech qanday kanal/guruh sozlanmagan bo'lsa, .env dagi eskisiga qaraymiz
-        channels = [REQUIRED_CHANNEL] if REQUIRED_CHANNEL else []
-    if not channels:
-        return True
-
-    missing = await get_missing_channels(bot, user_id, channels)
-    if not missing:
-        return True
-
-    links_text = "\n".join(f"• {ch}" for ch in missing)
-    kb_rows = []
-    for ch in missing:
-        url = f"https://t.me/{ch.lstrip('@')}" if ch.startswith("@") else None
-        if url:
-            kb_rows.append([InlineKeyboardButton(text=f"➕ {ch}", url=url)])
-    kb_rows.append([InlineKeyboardButton(text="✅ Tekshirish", callback_data="check_sub")])
-    kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
-
-    text = (
-        "❗️ Botdan foydalanish uchun quyidagi kanal/guruh(lar)ga a'zo bo'ling:\n\n"
-        f"{links_text}\n\nA'zo bo'lgach, pastdagi tugmani bosing."
-    )
-    if isinstance(message_or_cb, CallbackQuery):
-        await message_or_cb.message.answer(text, reply_markup=kb)
-    else:
-        await message_or_cb.answer(text, reply_markup=kb)
-    return False
-
-
-def profile_caption(user: dict) -> str:
-    vip_badge = " 💎" if db.is_vip_active(user) else ""
-    bio = user.get("bio") or "—"
-    return (
-        f"<b>{user['full_name']}</b>{vip_badge}, {user['age']}\n"
-        f"📍 {user['region']}, {user['district']}\n\n"
-        f"{bio}"
-    )
-
-
-# ============ /start ============
-
-@router.message(CommandStart())
-@flood_guard
-async def cmd_start(message: Message, state: FSMContext, bot: Bot):
-    if not await require_subscription(message, bot):
-        return
-    user = db.get_user(message.from_user.id)
-    if user:
-        db.touch_last_seen(message.from_user.id)
-        await message.answer(
-            f"Xush kelibsiz, {user['full_name']}! 👋", reply_markup=main_menu_kb()
-        )
-    else:
-        await state.set_state(Registration.full_name)
-        await message.answer(
-            "👋 Tanishuv botiga xush kelibsiz!\n\nKeling, profilingizni yarataylik.\n"
-            f"Ismingizni kiriting (maks. {MAX_NAME_LEN} belgi):",
-            reply_markup=ReplyKeyboardRemove(),
-        )
-
-
-@router.callback_query(F.data == "check_sub")
-@flood_guard
-async def check_sub_cb(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    channels = db.get_required_channels() or ([REQUIRED_CHANNEL] if REQUIRED_CHANNEL else [])
-    if await is_subscribed(bot, callback.from_user.id, channels):
-        await callback.answer("✅ Rahmat!")
+# ============================================================
+#                       MAJBURIY OBUNA
+# ============================================================
+async def get_not_subscribed(user_id: int) -> list:
+    """Foydalanuvchi obuna bo'lmagan kanallar ro'yxatini qaytaradi."""
+    if not REQUIRED_CHANNELS:
+        return []
+    missing = []
+    for ch in REQUIRED_CHANNELS:
         try:
-            await callback.message.delete()
-        except Exception:
-            pass
-        user = db.get_user(callback.from_user.id)
-        if user:
-            db.touch_last_seen(callback.from_user.id)
-            await bot.send_message(
-                callback.from_user.id,
-                f"Xush kelibsiz, {user['full_name']}! 👋",
-                reply_markup=main_menu_kb(),
-            )
+            member = await bot.get_chat_member(chat_id=ch["chat_id"], user_id=user_id)
+            if member.status in ("left", "kicked"):
+                missing.append(ch)
+        except TelegramBadRequest:
+            # bot kanalda admin emas yoki kanal topilmadi — xatoni yashirmaslik uchun log qilamiz
+            logging.warning(f"Obuna tekshirilmadi: {ch['chat_id']}")
+            missing.append(ch)
+    return missing
+
+
+def subscribe_kb(missing_channels: list) -> InlineKeyboardMarkup:
+    kb = [[InlineKeyboardButton(text=f"📢 {ch['title']}", url=ch['url'])] for ch in missing_channels]
+    kb.append([InlineKeyboardButton(text="✅ Obuna bo'ldim", callback_data="check_sub")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+async def require_subscription(target) -> bool:
+    """target — Message yoki CallbackQuery. True bo'lsa davom etsa bo'ladi."""
+    user_id = target.from_user.id
+    missing = await get_not_subscribed(user_id)
+    if missing:
+        text = "⚠️ Botdan foydalanish uchun quyidagi kanal(lar)ga obuna bo'ling:"
+        if isinstance(target, types.CallbackQuery):
+            await target.message.answer(text, reply_markup=subscribe_kb(missing))
+            await target.answer()
         else:
-            await state.set_state(Registration.full_name)
-            await bot.send_message(
-                callback.from_user.id,
-                "👋 Tanishuv botiga xush kelibsiz!\n\nKeling, profilingizni yarataylik.\n"
-                f"Ismingizni kiriting (maks. {MAX_NAME_LEN} belgi):",
-            )
-    else:
-        await callback.answer("Hali obuna bo'lmagansiz.", show_alert=True)
+            await target.answer(text, reply_markup=subscribe_kb(missing))
+        return False
+    return True
 
 
-# ============ REGISTRATION FLOW ============
-
-@router.message(Registration.full_name)
-@flood_guard
-async def reg_full_name(message: Message, state: FSMContext):
-    name = sanitize_text(message.text, MAX_NAME_LEN)
-    if len(name) < 2:
-        await message.answer("Ism juda qisqa. Qaytadan kiriting:")
+@dp.callback_query(F.data == "check_sub")
+async def check_sub(callback: types.CallbackQuery):
+    missing = await get_not_subscribed(callback.from_user.id)
+    if missing:
+        await callback.answer("❌ Hali barcha kanallarga obuna bo'lmadingiz.", show_alert=True)
         return
-    await state.update_data(full_name=name)
-    await state.set_state(Registration.age)
-    await message.answer(f"Necha yoshdasiz? ({MIN_AGE}-{MAX_AGE})")
+    await callback.message.delete()
+    await callback.message.answer("✅ Obuna tasdiqlandi! Botdan foydalanishingiz mumkin.",
+                                   reply_markup=get_main_kb(callback.from_user.id))
 
 
-@router.message(Registration.age)
-@flood_guard
-async def reg_age(message: Message, state: FSMContext):
-    age = validate_age(message.text.strip(), MIN_AGE, MAX_AGE)
-    if age is None:
-        await message.answer(f"Yoshni to'g'ri kiriting ({MIN_AGE}-{MAX_AGE} oralig'ida, faqat raqam):")
-        return
-    await state.update_data(age=age)
-    await state.set_state(Registration.gender)
-    await message.answer("Jinsingiz?", reply_markup=gender_kb())
+# ============================================================
+#                        TUGMALAR
+# ============================================================
+def get_main_kb(user_id: int) -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="👤 Profilimni yaratish/tahrirlash", callback_data="register")],
+        [InlineKeyboardButton(text="🔎 Tanishuvni boshlash", callback_data="random")],
+        [InlineKeyboardButton(text="🪪 Profilim", callback_data="my_profile")],
+    ]
+    if is_admin(user_id):
+        kb.append([InlineKeyboardButton(text="⚙️ Admin Panel", callback_data="admin")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
-@router.message(Registration.gender, F.text.in_(["👨 Erkak", "👩 Ayol"]))
-@flood_guard
-async def reg_gender(message: Message, state: FSMContext):
-    gender = "male" if "Erkak" in message.text else "female"
-    await state.update_data(gender=gender)
-    await state.set_state(Registration.region)
-    await message.answer("Qaysi viloyatdansiz?", reply_markup=regions_kb())
-
-
-@router.message(Registration.gender)
-@flood_guard
-async def reg_gender_invalid(message: Message):
-    await message.answer("Iltimos tugmalardan birini tanlang.", reply_markup=gender_kb())
-
-
-@router.message(Registration.region)
-@flood_guard
-async def reg_region(message: Message, state: FSMContext):
-    if message.text not in REGION_NAMES:
-        await message.answer("Iltimos ro'yxatdan viloyatni tanlang.", reply_markup=regions_kb())
-        return
-    await state.update_data(region=message.text)
-    await state.set_state(Registration.district)
-    await message.answer("Qaysi tuman/shahardansiz?", reply_markup=districts_kb(message.text))
-
-
-@router.message(Registration.district)
-@flood_guard
-async def reg_district(message: Message, state: FSMContext):
-    data = await state.get_data()
-    region = data.get("region")
-    valid_districts = get_districts(region)
-    if message.text == "⬅️ Orqaga":
-        await state.set_state(Registration.region)
-        await message.answer("Qaysi viloyatdansiz?", reply_markup=regions_kb())
-        return
-    if message.text not in valid_districts:
-        await message.answer("Iltimos ro'yxatdan tumanni tanlang.", reply_markup=districts_kb(region))
-        return
-    await state.update_data(district=message.text)
-    await state.set_state(Registration.photo)
-    await message.answer("Profilingiz uchun rasm yuboring:", reply_markup=ReplyKeyboardRemove())
-
-
-@router.message(Registration.photo, F.photo)
-@flood_guard
-async def reg_photo(message: Message, state: FSMContext):
-    photo_id = message.photo[-1].file_id
-    await state.update_data(photo_id=photo_id)
-    await state.set_state(Registration.bio)
-    await message.answer(
-        f"O'zingiz haqingizda qisqacha yozing (maks. {MAX_BIO_LEN} belgi) "
-        "yoki o'tkazib yuboring:",
-        reply_markup=skip_kb(),
-    )
-
-
-@router.message(Registration.photo)
-@flood_guard
-async def reg_photo_invalid(message: Message):
-    await message.answer("Iltimos rasm (fotosurat) yuboring.")
-
-
-@router.message(Registration.bio)
-@flood_guard
-async def reg_bio(message: Message, state: FSMContext):
-    bio = "" if message.text == "O'tkazib yuborish" else sanitize_text(message.text or "", MAX_BIO_LEN)
-    data = await state.get_data()
-
-    db.create_or_update_profile(
-        user_id=message.from_user.id,
-        username=message.from_user.username or "",
-        full_name=data["full_name"],
-        age=data["age"],
-        gender=data["gender"],
-        region=data["region"],
-        district=data["district"],
-        bio=bio,
-        photo_id=data["photo_id"],
-    )
-    await state.clear()
-    await message.answer("✅ Profilingiz saqlandi!", reply_markup=main_menu_kb())
-
-
-# ============ PROFILE / MENU ============
-
-@router.message(F.text == "👤 Mening profilim")
-@flood_guard
-async def my_profile(message: Message, bot: Bot):
-    if not await require_subscription(message, bot):
-        return
-    user = db.get_user(message.from_user.id)
-    if not user:
-        await message.answer("Avval /start bosib ro'yxatdan o'ting.")
-        return
-    await message.answer_photo(
-        user["photo_id"], caption=profile_caption(user), parse_mode="HTML"
-    )
-
-
-@router.message(F.text == "💎 VIP")
-@flood_guard
-async def vip_info(message: Message):
-    user = db.get_user(message.from_user.id)
-    if user and db.is_vip_active(user):
-        until = datetime.fromtimestamp(user["vip_until"]).strftime("%Y-%m-%d")
-        await message.answer(f"💎 Siz allaqachon VIP foydalanuvchisiz!\nAmal qilish muddati: {until}")
-        return
-    await message.answer(
-        "💎 <b>VIP imkoniyatlari:</b>\n"
-        "• Butun O'zbekiston bo'yicha profillarni ko'rish (faqat o'z viloyatingiz emas)\n"
-        "• Profilingiz boshqalarga birinchi navbatda ko'rsatiladi\n"
-        "• Maxsus 💎 belgisi\n\n"
-        "VIP sotib olish uchun admin bilan bog'laning.",
-        parse_mode="HTML",
-    )
-
-
-@router.message(F.text == "❌ Profilni o'chirish")
-@flood_guard
-async def delete_profile(message: Message):
-    db.deactivate_profile(message.from_user.id)
-    await message.answer(
-        "Profilingiz o'chirildi (boshqalar sizni endi ko'rmaydi). "
-        "Qayta faollashtirish uchun /start bosing.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
-
-# ============ BROWSING ============
-
-@router.message(F.text == "🔍 Ko'rish")
-@flood_guard
-async def browse(message: Message, bot: Bot):
-    if not await require_subscription(message, bot):
-        return
-    user = db.get_user(message.from_user.id)
-    if not user:
-        await message.answer("Avval /start bosib ro'yxatdan o'ting.")
-        return
-    db.touch_last_seen(message.from_user.id)
-
-    opposite = "female" if user["gender"] == "male" else "male"
-    region_filter = None if db.is_vip_active(user) else user["region"]
-    candidate = db.get_next_profile(message.from_user.id, opposite, region_filter)
-
-    if not candidate:
-        await message.answer(
-            "Hozircha yangi profillar tugadi. Keyinroq qayta urinib ko'ring 🙂"
-        )
-        return
-
-    await message.answer_photo(
-        candidate["photo_id"],
-        caption=profile_caption(candidate),
-        parse_mode="HTML",
-        reply_markup=reaction_kb(candidate["user_id"]),
-    )
-
-
-@router.callback_query(F.data.startswith("like:") | F.data.startswith("skip:"))
-@flood_guard
-async def reaction_cb(callback: CallbackQuery, bot: Bot):
-    action, target_id_str = callback.data.split(":")
-    target_id = int(target_id_str)
-    from_id = callback.from_user.id
-
-    is_match = db.record_reaction(from_id, target_id, "like" if action == "like" else "skip")
-    await callback.message.edit_reply_markup(reply_markup=None)
-
-    if action == "like":
-        await callback.answer("❤️ Yoqtirildi!")
-        if is_match:
-            me = db.get_user(from_id)
-            other = db.get_user(target_id)
-
-            def contact_line(user):
-                return f"\n👉 @{user['username']}" if user.get("username") else "\n👉 Bog'lanish uchun profilidagi ma'lumotlardan foydalaning."
-
-            match_text_me = f"🎉 Yangi moslik (match)! {other['full_name']} sizga ham yoqdingiz!" + contact_line(other)
-            match_text_other = f"🎉 Yangi moslik (match)! {me['full_name']} sizga ham yoqdingiz!" + contact_line(me)
-            try:
-                await bot.send_message(from_id, match_text_me)
-                await bot.send_message(target_id, match_text_other)
-            except Exception as e:
-                log.warning(f"Match xabarini yuborishda xato: {e}")
-    else:
-        await callback.answer("O'tkazib yuborildi")
-
-    # Keyingi profilni ko'rsatamiz
-    user = db.get_user(from_id)
-    opposite = "female" if user["gender"] == "male" else "male"
-    region_filter = None if db.is_vip_active(user) else user["region"]
-    candidate = db.get_next_profile(from_id, opposite, region_filter)
-    if candidate:
-        await callback.message.answer_photo(
-            candidate["photo_id"],
-            caption=profile_caption(candidate),
-            parse_mode="HTML",
-            reply_markup=reaction_kb(candidate["user_id"]),
-        )
-    else:
-        await callback.message.answer("Hozircha yangi profillar tugadi 🙂")
-
-
-@router.callback_query(F.data.startswith("report:"))
-@flood_guard
-async def report_cb(callback: CallbackQuery):
-    target_id = int(callback.data.split(":")[1])
-    db.add_report(callback.from_user.id, target_id, reason="user_reported")
-    db.record_reaction(callback.from_user.id, target_id, "skip")
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.answer("Shikoyat qabul qilindi. Rahmat!", show_alert=True)
-
-
-# ============ ADMIN PANEL (tugmali) ============
-
-class AdminAction(StatesGroup):
-    ban_id = State()
-    unban_id = State()
-    vip_id = State()
-    vip_days = State()
-    addchannel = State()
-    removechannel = State()
-
-
-def admin_menu_kb():
+def gender_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
-        [InlineKeyboardButton(text="🚫 Ban qilish", callback_data="adm:ban"),
-         InlineKeyboardButton(text="✅ Unban qilish", callback_data="adm:unban")],
-        [InlineKeyboardButton(text="💎 VIP berish", callback_data="adm:vip")],
-        [InlineKeyboardButton(text="📢 Kanal qo'shish", callback_data="adm:addchannel"),
-         InlineKeyboardButton(text="🗑 Kanal o'chirish", callback_data="adm:removechannel")],
-        [InlineKeyboardButton(text="📋 Kanallar ro'yxati", callback_data="adm:listchannels")],
-        [InlineKeyboardButton(text="📨 Xabar yuborish", callback_data="adm:broadcast")],
+        [InlineKeyboardButton(text="👨 Erkak", callback_data="gender_male"),
+         InlineKeyboardButton(text="👩 Ayol", callback_data="gender_female")]
     ])
 
 
-def stats_text():
-    stats = db.get_stats()
-    return (
-        "📊 <b>Statistika</b>\n\n"
-        f"👥 Jami foydalanuvchi: {stats['total']}\n"
-        f"✅ Faol: {stats['active']}\n"
-        f"👨 Erkak: {stats['male']} | 👩 Ayol: {stats['female']}\n"
-        f"❤️ Matchlar: {stats['matches']}\n"
-        f"💎 VIP: {stats['vip']}\n"
-        f"🚫 Ban qilingan: {stats['banned']}"
+def region_kb() -> InlineKeyboardMarkup:
+    kb, row = [], []
+    for i, (name, _) in enumerate(REGIONS):
+        row.append(InlineKeyboardButton(text=name, callback_data=f"region_{i}"))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def district_kb(region_idx: int) -> InlineKeyboardMarkup:
+    districts = REGIONS[region_idx][1]
+    kb, row = [], []
+    for i, d in enumerate(districts):
+        row.append(InlineKeyboardButton(text=d, callback_data=f"district_{i}"))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+    kb.append([InlineKeyboardButton(text="🔙 Viloyatni qayta tanlash", callback_data="back_to_region")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+
+def admin_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
+        [InlineKeyboardButton(text="📢 Xabar yuborish (rasilka)", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(text="⛔ Foydalanuvchini bloklash", callback_data="admin_ban")],
+        [InlineKeyboardButton(text="✅ Blokdan chiqarish", callback_data="admin_unban")],
+        [InlineKeyboardButton(text="🔙 Bosh menyu", callback_data="back_to_menu")],
+    ])
+
+
+# ============================================================
+#                     START / BOSH MENYU
+# ============================================================
+@dp.message(CommandStart())
+async def start(message: types.Message):
+    db_add_user_if_missing(message.from_user)
+    if not await require_subscription(message):
+        return
+    await message.answer(
+        "✨ <b>Tanishuv botiga xush kelibsiz!</b>\n\n"
+        "Professional tanishuv muhiti. Profilingizni yarating va muloqotni boshlang.",
+        parse_mode="HTML",
+        reply_markup=get_main_kb(message.from_user.id)
     )
 
 
-@router.message(Command("admin"))
-@admin_only
-async def admin_panel(message: Message, state: FSMContext):
+@dp.callback_query(F.data == "back_to_menu")
+async def back_menu(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await message.answer("🛠 <b>Admin panel</b>\nKerakli bo'limni tanlang:",
-                          parse_mode="HTML", reply_markup=admin_menu_kb())
-
-
-@router.callback_query(F.data.startswith("adm:"))
-@flood_guard
-async def admin_menu_cb(callback: CallbackQuery, state: FSMContext):
-    if not is_admin(callback.from_user.id):
-        await callback.answer()
-        return
-    action = callback.data.split(":", 1)[1]
-    await callback.answer()
-
-    if action == "stats":
-        await callback.message.answer(stats_text(), parse_mode="HTML", reply_markup=admin_menu_kb())
-
-    elif action == "listchannels":
-        channels = db.get_required_channels()
-        text = ("📢 Majburiy obuna ro'yxati:\n" + "\n".join(f"• {html.escape(c)}" for c in channels)
-                if channels else "Hozircha majburiy kanal/guruh o'rnatilmagan.")
-        await callback.message.answer(text, reply_markup=admin_menu_kb())
-
-    elif action == "ban":
-        await state.set_state(AdminAction.ban_id)
-        await callback.message.answer("🚫 Ban qilinadigan foydalanuvchining Telegram ID raqamini yuboring:")
-
-    elif action == "unban":
-        await state.set_state(AdminAction.unban_id)
-        await callback.message.answer("✅ Blokdan chiqariladigan foydalanuvchining Telegram ID raqamini yuboring:")
-
-    elif action == "vip":
-        await state.set_state(AdminAction.vip_id)
-        await callback.message.answer("💎 VIP beriladigan foydalanuvchining Telegram ID raqamini yuboring:")
-
-    elif action == "addchannel":
-        await state.set_state(AdminAction.addchannel)
-        await callback.message.answer(
-            "📢 Qo'shiladigan kanal/guruh username (@kanal) yoki ID sini (-1001234567890) yuboring.\n\n"
-            "⚠️ Botni oldindan o'sha kanal/guruhga ADMIN qilib qo'shib qo'ying!"
-        )
-
-    elif action == "removechannel":
-        await state.set_state(AdminAction.removechannel)
-        await callback.message.answer("🗑 O'chiriladigan kanal/guruh username yoki ID sini yuboring:")
-
-    elif action == "broadcast":
-        await state.set_state(BroadcastState.waiting_text)
-        await callback.message.answer("📨 Barchaga yuboriladigan xabar matnini kiriting:")
-
-
-@router.message(AdminAction.ban_id)
-@admin_only
-async def adm_ban_id(message: Message, state: FSMContext):
-    if not message.text or not message.text.strip().isdigit():
-        await message.answer("Faqat raqam (Telegram ID) yuboring:")
-        return
-    user_id = int(message.text.strip())
-    db.ban_user(user_id, True)
-    await state.clear()
-    await message.answer(f"🚫 {user_id} bloklandi.", reply_markup=admin_menu_kb())
-
-
-@router.message(AdminAction.unban_id)
-@admin_only
-async def adm_unban_id(message: Message, state: FSMContext):
-    if not message.text or not message.text.strip().isdigit():
-        await message.answer("Faqat raqam (Telegram ID) yuboring:")
-        return
-    user_id = int(message.text.strip())
-    db.ban_user(user_id, False)
-    await state.clear()
-    await message.answer(f"✅ {user_id} blokdan chiqarildi.", reply_markup=admin_menu_kb())
-
-
-@router.message(AdminAction.vip_id)
-@admin_only
-async def adm_vip_id(message: Message, state: FSMContext):
-    if not message.text or not message.text.strip().isdigit():
-        await message.answer("Faqat raqam (Telegram ID) yuboring:")
-        return
-    await state.update_data(vip_user_id=int(message.text.strip()))
-    await state.set_state(AdminAction.vip_days)
-    await message.answer("Necha kunlik VIP berilsin? (masalan: 30)")
-
-
-@router.message(AdminAction.vip_days)
-@admin_only
-async def adm_vip_days(message: Message, state: FSMContext):
-    if not message.text or not message.text.strip().isdigit():
-        await message.answer("Faqat raqam (kunlar soni) yuboring:")
-        return
-    data = await state.get_data()
-    user_id = data["vip_user_id"]
-    days = int(message.text.strip())
-    until_ts = int(datetime.now().timestamp()) + days * 86400
-    db.set_vip(user_id, until_ts)
-    await state.clear()
-    await message.answer(f"💎 {user_id} ga {days} kunlik VIP berildi.", reply_markup=admin_menu_kb())
-
-
-@router.message(AdminAction.addchannel)
-@admin_only
-async def adm_addchannel(message: Message, state: FSMContext, bot: Bot):
-    channel = (message.text or "").strip()
-    if not channel:
-        await message.answer("Kanal/guruh username yoki ID sini yuboring:")
+    if not await require_subscription(callback):
         return
     try:
-        me = await bot.get_chat_member(channel, bot.id)
-        if me.status not in ("administrator", "creator"):
-            await message.answer(
-                f"⚠️ Bot {channel} da ADMIN emas. Avval botni admin qiling, keyin qayta yuboring."
-            )
-            return
-    except Exception as e:
-        await message.answer(
-            f"❌ {channel} ga kira olmadim: {e}\n"
-            "Username/ID to'g'riligini va botning shu yerda a'zoligini tekshiring."
-        )
+        await callback.message.edit_text("✨ <b>Bosh menyu:</b>", parse_mode="HTML",
+                                          reply_markup=get_main_kb(callback.from_user.id))
+    except TelegramBadRequest:
+        await callback.message.answer("✨ <b>Bosh menyu:</b>", parse_mode="HTML",
+                                       reply_markup=get_main_kb(callback.from_user.id))
+    await callback.answer()
+
+
+# ============================================================
+#                  PROFIL YARATISH LOGIKASI
+# ============================================================
+@dp.callback_query(F.data == "register")
+async def start_reg(callback: types.CallbackQuery, state: FSMContext):
+    if not await require_subscription(callback):
         return
-    db.add_required_channel(channel)
-    await state.clear()
-    await message.answer(f"✅ {channel} majburiy obuna ro'yxatiga qo'shildi.", reply_markup=admin_menu_kb())
+    await callback.message.answer("1/6 Ismingizni yozing:")
+    await state.set_state(ProfileState.name)
+    await callback.answer()
 
 
-@router.message(AdminAction.removechannel)
-@admin_only
-async def adm_removechannel(message: Message, state: FSMContext):
-    channel = (message.text or "").strip()
-    if not channel:
-        await message.answer("Kanal/guruh username yoki ID sini yuboring:")
+@dp.message(ProfileState.name)
+async def get_name(message: types.Message, state: FSMContext):
+    if not message.text or len(message.text) > 50:
+        await message.answer("❌ Iltimos, to'g'ri ism kiriting (50 belgidan kam):")
         return
-    db.remove_required_channel(channel)
-    await state.clear()
-    await message.answer(f"✅ {channel} ro'yxatdan olib tashlandi.", reply_markup=admin_menu_kb())
+    await state.update_data(name=message.text)
+    await message.answer("2/6 Yoshingizni kiriting (raqamda):")
+    await state.set_state(ProfileState.age)
 
 
-@router.message(BroadcastState.waiting_text)
-@admin_only
-async def cmd_broadcast_send(message: Message, state: FSMContext, bot: Bot):
+@dp.message(ProfileState.age)
+async def get_age(message: types.Message, state: FSMContext):
+    if not message.text or not message.text.isdigit() or not (14 <= int(message.text) <= 99):
+        await message.answer("❌ Iltimos, yoshingizni to'g'ri raqamda kiriting (masalan: 22):")
+        return
+    await state.update_data(age=message.text)
+    await message.answer("3/6 Jinsingizni tanlang:", reply_markup=gender_kb())
+    await state.set_state(ProfileState.gender)
+
+
+@dp.callback_query(ProfileState.gender, F.data.startswith("gender_"))
+async def get_gender(callback: types.CallbackQuery, state: FSMContext):
+    gender = "Erkak" if callback.data == "gender_male" else "Ayol"
+    await state.update_data(gender=gender)
+    await callback.message.answer("4/6 Viloyatingizni tanlang:", reply_markup=region_kb())
+    await state.set_state(ProfileState.region)
+    await callback.answer()
+
+
+@dp.callback_query(ProfileState.region, F.data.startswith("region_"))
+async def get_region(callback: types.CallbackQuery, state: FSMContext):
+    idx = int(callback.data.split("_")[1])
+    region_name, _ = REGIONS[idx]
+    await state.update_data(region_idx=idx, region_name=region_name)
+    await callback.message.edit_text(
+        f"Viloyat: {region_name}\n\n5/6 Tumaningizni/shahringizni tanlang:",
+        reply_markup=district_kb(idx)
+    )
+    await state.set_state(ProfileState.district)
+    await callback.answer()
+
+
+@dp.callback_query(ProfileState.district, F.data == "back_to_region")
+async def back_to_region(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("4/6 Viloyatingizni tanlang:", reply_markup=region_kb())
+    await state.set_state(ProfileState.region)
+    await callback.answer()
+
+
+@dp.callback_query(ProfileState.district, F.data.startswith("district_"))
+async def get_district(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    idx = int(callback.data.split("_")[1])
+    region_idx = data['region_idx']
+    district_name = REGIONS[region_idx][1][idx]
+    city_value = f"{district_name}, {data['region_name']}"
+    await state.update_data(city=city_value)
+    await callback.message.edit_text(f"📍 Tanlandi: {city_value}")
+    await callback.message.answer("6/6 Endi rasmingizni yuboring:")
+    await state.set_state(ProfileState.photo)
+    await callback.answer()
+
+
+@dp.message(ProfileState.photo, F.photo)
+async def get_photo(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    data['photo'] = message.photo[-1].file_id
+    db_save_profile(message.from_user.id, message.from_user.username, data)
+    await message.answer("✅ <b>Profilingiz muvaffaqiyatli saqlandi!</b>", parse_mode="HTML",
+                          reply_markup=get_main_kb(message.from_user.id))
     await state.clear()
-    text = message.text
-    ids = db.get_all_active_user_ids()
-    sent, failed = 0, 0
-    await message.answer(f"Yuborilmoqda... ({len(ids)} foydalanuvchi)")
-    for uid in ids:
+
+
+@dp.message(ProfileState.photo)
+async def get_photo_invalid(message: types.Message):
+    await message.answer("❌ Iltimos, rasm (foto) ko'rinishida yuboring:")
+
+
+# ============================================================
+#                       PROFILIM
+# ============================================================
+@dp.callback_query(F.data == "my_profile")
+async def my_profile(callback: types.CallbackQuery):
+    if not await require_subscription(callback):
+        return
+    profile = db_get_profile(callback.from_user.id)
+    if not profile or not profile['name']:
+        await callback.answer("Sizda hali profil yo'q. Avval profil yarating.", show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Tahrirlash", callback_data="register")],
+        [InlineKeyboardButton(text="🗑 O'chirish", callback_data="delete_profile")],
+        [InlineKeyboardButton(text="🔙 Bosh menyu", callback_data="back_to_menu")],
+    ])
+    caption = (f"👤 Ism: {profile['name']}\n🎂 Yosh: {profile['age']}\n"
+               f"⚧ Jins: {profile['gender']}\n📍 Shahar: {profile['city']}")
+    await callback.message.answer_photo(photo=profile['photo_id'], caption=caption, reply_markup=kb)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "delete_profile")
+async def delete_profile(callback: types.CallbackQuery):
+    db_delete_profile(callback.from_user.id)
+    await callback.message.answer("🗑 Profilingiz o'chirildi.", reply_markup=get_main_kb(callback.from_user.id))
+    await callback.answer()
+
+
+# ============================================================
+#              RANDOM TANISHUV (Like / Mutual Match)
+# ============================================================
+@dp.callback_query(F.data == "random")
+async def random_user(callback: types.CallbackQuery):
+    if not await require_subscription(callback):
+        return
+    my_profile_row = db_get_profile(callback.from_user.id)
+    if not my_profile_row or not my_profile_row['name']:
+        await callback.answer("Avval profilingizni yarating!", show_alert=True)
+        return
+
+    # HOZIRCHA: hamma bir-biriga random ko'rinadi (jins bo'yicha filtr yo'q).
+    # Jins bo'yicha filtrlash (faqat qarama-qarshi jins chiqishi) keyinchalik
+    # VIP/pullik funksiya sifatida qo'shiladi — o'shanda quyidagi qatorni
+    # db_random_profile(callback.from_user.id, opposite_gender) ga almashtiring.
+    user = db_random_profile(callback.from_user.id)
+    if not user:
+        await callback.answer("Hozircha boshqa foydalanuvchilar yo'q.", show_alert=True)
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❤️ Like", callback_data=f"like_{user['user_id']}")],
+        [InlineKeyboardButton(text="🔄 Keyingisi", callback_data="random")],
+        [InlineKeyboardButton(text="🔙 Menyuga qaytish", callback_data="back_to_menu")]
+    ])
+
+    caption = (f"👤 Ism: {user['name']}\n🎂 Yosh: {user['age']}\n"
+               f"⚧ Jins: {user['gender']}\n📍 Shahar: {user['city']}")
+
+    await callback.message.answer_photo(photo=user['photo_id'], caption=caption, reply_markup=kb)
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("like_"))
+async def process_like(callback: types.CallbackQuery):
+    target_id = int(callback.data.split("_")[1])
+
+    if target_id == callback.from_user.id:
+        await callback.answer("O'zingizni like qila olmaysiz 🙂", show_alert=True)
+        return
+
+    is_match = db_add_like(callback.from_user.id, target_id)
+
+    # Layk bosilgan zahoti o'sha odamning username'ini ko'rsatamiz
+    try:
+        target_chat = await bot.get_chat(target_id)
+        target_username = target_chat.username
+    except (TelegramForbiddenError, TelegramBadRequest):
+        target_profile = db_get_profile(target_id)
+        target_username = target_profile['username'] if target_profile else None
+
+    target_link = f"@{target_username}" if target_username else "username yashirin (profilida username yo'q)"
+    await callback.message.answer(f"❤️ Like yuborildi!\n👤 Bog'lanish uchun: {target_link}")
+
+    if is_match:
+        my_username = callback.from_user.username
+        my_link = f"@{my_username}" if my_username else "username yashirin"
+        await callback.message.answer("🎉 <b>Bu — MATCH!</b>\nBir-biringizga yoqib qoldingiz.",
+                                       parse_mode="HTML")
         try:
-            await bot.send_message(uid, text)
+            await bot.send_message(target_id, f"🎉 <b>Sizga MATCH bor!</b>\n👤 Bog'lanish uchun: {my_link}",
+                                    parse_mode="HTML")
+        except (TelegramForbiddenError, TelegramBadRequest):
+            pass
+
+    await callback.answer()
+
+
+# ============================================================
+#                       ADMIN PANEL
+# ============================================================
+@dp.callback_query(F.data == "admin")
+async def admin_panel(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Sizda ruxsat yo'q.", show_alert=True)
+        return
+    await callback.message.edit_text("⚙️ <b>Admin Panel</b>", parse_mode="HTML", reply_markup=admin_kb())
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "admin_stats")
+async def admin_stats(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    s = db_stats()
+    text = (f"📊 <b>Statistika</b>\n\n"
+            f"👥 Jami foydalanuvchilar: <b>{s['total']}</b>\n"
+            f"🆕 Bugun qo'shilganlar: <b>{s['today']}</b>\n"
+            f"❤️ Jami like'lar: <b>{s['likes']}</b>\n"
+            f"⛔ Bloklangan: <b>{s['banned']}</b>")
+    await callback.message.answer(text, parse_mode="HTML", reply_markup=admin_kb())
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast_start(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.message.answer("📢 Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni yozing "
+                                   "(matn, rasm yoki video bo'lishi mumkin):")
+    await state.set_state(AdminState.broadcast)
+    await callback.answer()
+
+
+@dp.message(AdminState.broadcast)
+async def admin_broadcast_send(message: types.Message, state: FSMContext):
+    await state.clear()
+    user_ids = db_all_user_ids()
+    sent, failed = 0, 0
+    status_msg = await message.answer(f"⏳ Yuborilmoqda... 0/{len(user_ids)}")
+
+    for i, uid in enumerate(user_ids, start=1):
+        try:
+            await message.copy_to(chat_id=uid)
             sent += 1
-        except Exception:
+        except (TelegramForbiddenError, TelegramBadRequest):
             failed += 1
-        await asyncio.sleep(0.05)  # Telegram rate-limit'ga urilmaslik uchun
-    await message.answer(f"✅ Yuborildi: {sent} | ❌ Xato: {failed}", reply_markup=admin_menu_kb())
+        await asyncio.sleep(0.05)  # flood limitdan saqlanish uchun
+        if i % 25 == 0:
+            try:
+                await status_msg.edit_text(f"⏳ Yuborilmoqda... {i}/{len(user_ids)}")
+            except TelegramBadRequest:
+                pass
+
+    await status_msg.edit_text(f"✅ Yuborish yakunlandi!\n📤 Yuborildi: {sent}\n❌ Xato: {failed}")
+    await message.answer("⚙️ Admin Panel", reply_markup=admin_kb())
 
 
-# ============ MAIN ============
+@dp.callback_query(F.data == "admin_ban")
+async def admin_ban_start(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.message.answer("⛔ Bloklamoqchi bo'lgan foydalanuvchining ID raqamini yuboring:")
+    await state.set_state(AdminState.ban_user)
+    await callback.answer()
 
+
+@dp.message(AdminState.ban_user)
+async def admin_ban_process(message: types.Message, state: FSMContext):
+    await state.clear()
+    if not message.text or not message.text.isdigit():
+        await message.answer("❌ Noto'g'ri ID. Qayta urinib ko'ring.", reply_markup=admin_kb())
+        return
+    db_set_ban(int(message.text), True)
+    await message.answer(f"✅ Foydalanuvchi {message.text} bloklandi.", reply_markup=admin_kb())
+
+
+@dp.callback_query(F.data == "admin_unban")
+async def admin_unban_start(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await callback.message.answer("✅ Blokdan chiqarmoqchi bo'lgan foydalanuvchining ID raqamini yuboring:")
+    await state.set_state(AdminState.unban_user)
+    await callback.answer()
+
+
+@dp.message(AdminState.unban_user)
+async def admin_unban_process(message: types.Message, state: FSMContext):
+    await state.clear()
+    if not message.text or not message.text.isdigit():
+        await message.answer("❌ Noto'g'ri ID. Qayta urinib ko'ring.", reply_markup=admin_kb())
+        return
+    db_set_ban(int(message.text), False)
+    await message.answer(f"✅ Foydalanuvchi {message.text} blokdan chiqarildi.", reply_markup=admin_kb())
+
+
+# ============================================================
+#                    BLOKLANGANLARNI TO'SISH
+# ============================================================
+@dp.message()
+async def block_banned_fallback(message: types.Message, state: FSMContext):
+    """FSM holatida bo'lmagan va boshqa hech qanday handlerga tushmagan xabarlar uchun."""
+    profile = db_get_profile(message.from_user.id)
+    if profile and profile['is_banned']:
+        await message.answer("⛔ Siz botdan foydalanish huquqidan mahrum qilingansiz.")
+        return
+    if not await require_subscription(message):
+        return
+    await message.answer("Quyidagi menyudan foydalaning:", reply_markup=get_main_kb(message.from_user.id))
+
+
+# ============================================================
+#                          ISHGA TUSHIRISH
+# ============================================================
 async def main():
-    db.init_db()
-    bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher(storage=MemoryStorage())
-    dp.include_router(router)
-
-    # Webhook bilan konflikt bo'lmasligi uchun har ishga tushganda tozalaymiz
-    await bot.delete_webhook(drop_pending_updates=True)
-
-    log.info("Bot ishga tushdi.")
-    log.info(f"Adminlar: {ADMIN_IDS}")
+    print("Bot muvaffaqiyatli ishga tushdi...")
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        log.info("Bot to'xtatildi.")
+    asyncio.run(main())
