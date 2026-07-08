@@ -1,8 +1,10 @@
 import asyncio
+import os
 import sqlite3
 import logging
 from datetime import datetime
 
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -12,18 +14,34 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 # ============================================================
-#                        SOZLAMALAR
+#              SOZLAMALAR (.env FAYLDAN O'QILADI)
 # ============================================================
-TOKEN = "8842602846:AAE1ZboKqZJe3Ie28lM2WkoqE76cDaKzES0"
-ADMIN_IDS = [8007670371]          # bir nechta admin bo'lsa: [123, 456]
+load_dotenv()  # loyihaning ildizidagi .env faylini o'qiydi
 
-# MAJBURIY OBUNA — kanal @username yoki -100... ID bo'lishi kerak
-# Bot albatta shu kanal(lar)da ADMIN bo'lishi shart, aks holda tekshira olmaydi!
-REQUIRED_CHANNELS = [
-    {"chat_id": "@yoryor_rasmi", "title": "Yoryor guruhi", "url": "https://t.me/yoryor_rasmi"},
-]
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN topilmadi! .env faylida yoki Railway Variables'da BOT_TOKEN ni kiriting.")
 
-DB_PATH = "users.db"
+# ADMIN_IDS: bitta yoki bir nechta ID, vergul bilan: ADMIN_IDS=123456789,987654321
+_admin_ids_raw = os.getenv("ADMIN_IDS", "")
+ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()]
+
+# REQUIRED_CHANNEL: majburiy obuna kanali/guruhi, masalan @yoryor_rasmi
+_required_channel = os.getenv("REQUIRED_CHANNEL", "").strip()
+REQUIRED_CHANNELS = []
+if _required_channel:
+    REQUIRED_CHANNELS = [{
+        "chat_id": _required_channel,
+        "title": "Kanalimiz",
+        "url": f"https://t.me/{_required_channel.lstrip('@')}"
+    }]
+
+DB_PATH = os.getenv("DB_PATH", "./data/tanishuv.db")
+# DB_PATH papkasi mavjud bo'lmasa, avtomatik yaratamiz (masalan ./data)
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir and not os.path.exists(_db_dir):
+    os.makedirs(_db_dir, exist_ok=True)
+
 
 # ============================================================
 #            O'ZBEKISTON VILOYATLARI VA TUMANLARI
